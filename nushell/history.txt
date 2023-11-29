@@ -541,3 +541,179 @@ http get --headers [Authorization 'Basic 1'] http://localhost:3000/users
 http get --headers [Authorization 'Basic 2'] http://localhost:3000/users
 http delete --headers [Authorisation 'Basic 1'] http://localhost:3000/posts/2
 http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+exit
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/users
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/users
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+nvim ~/.config/nvim/lua/config/options.lua
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/1/posts
+gh
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/3/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/3/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/3/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/dadsasda/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/dadsadadasda/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/3/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts
+http post --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/2/posts {title: 'hello', description: 'hellooo'}
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=title
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=title&description=desc
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=title&description=aaa
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=hello&description=hello
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/2/posts {title: 'hello', description: 'hellooo'}
+http post --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/3/posts {title: 'hello', description: 'hellooo'}
+http post --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/1/posts {title: 'hello', description: 'hellooo'}
+http patch --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/2/posts/1 {title: 'hello', description: 'hellooo'}
+http patch --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/2/posts/4 {title: 'hello', description: 'hellooo'}
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=hello&description=hello
+http patch --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/2/posts/4 {title: 'hello', description: 'hellooo'}
+http patch --headers [Authorization 'Basic 2']  --content-type application/json  http://localhost:3000/users/2/posts/4 {title: 'hellosss', descriptiossssn: 'hefdsfsllooo'}
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts/1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts?title=hello&description=hello
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 10'] http://localhost:3000/users/10/posts
+http post --headers [Authorization 'Basic 10']  --content-type application/json  http://localhost:3000/users/10/posts {title: 'hello', description: 'hellooo'}
+http post --headers [Authorization 'Basic 3']  --content-type application/json  http://localhost:3000/users/3/posts {title: 'hello', description: 'hellooo'}
+http post --headers [Authorization 'Basic 4']  --content-type application/json  http://localhost:3000/users/3/posts {title: 'hello', description: 'hellooo'}
+nvim .oh-my-zsh/themes/robbyrussell.zsh-theme
+source .zshrc
+nvim .oh-my-zsh/themes/robbyrussell.zsh-theme
+nvim .config/nvim/lua/plugins/colorschemes.lua
+ls
+nvim .config/alacritty/alacritty.yml
+ls
+nvim .config/nvim/lua/plugins/lsp.lua
+nvim .config/alacritty/alacritty.yml
+nvim .config/nvim/lua/plugins/colorizer.lua
+nvim .config/alacritty/alacritty.yml
+ls
+http post --headers [Authorization 'Basic 3']  --content-type application/json  http://localhost:3000/users/3/posts {title: 'hello', description: 'hellooo'}
+http get --headers [Authorization 'Basic 10'] http://localhost:3000/users/10/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ | where id = 1
+ls
+ls | where type = file
+ls | where type == dir
+ls | where type == file
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ | where id = = 1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ | where id == 1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ 
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/user
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ 
+http get --headers [Authorization 'Basic 1'] http://localhost:3000
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users
+http get http://localhost:3000/users
+http get http://localhost:3000/users/1/bl
+http get http://localhost:3000/users/1/bl?ble=3
+http get http://localhost:3000/users/1/bl?email=3
+http get http://localhost:3000/users/
+http get http://localhost:3000/users/1/bl/
+http get http://localhost:3000/users/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/ 
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/ 
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+cd .config/nvim/lua/plugins/
+nvim .
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts/1
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts/2
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts/3
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/2/posts/4
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/3/posts/
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/users/posts
+http get --headers [Authorization 'Basic 3'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/all
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/all/1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/all/2
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/all
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/all
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/3/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/all
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/all/1
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/all/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/all/1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/all/2
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/users/2/posts/4
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/al/2
+nvim ~/.config/nvim/lua/config/options.lua
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+nvim ~/.config/nvim/lua/config/options.lua
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+nvim ~/.config/nvim/lua/config/options.lua
+nvim ~/.config/nvim/init.lua
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+nvim ~/.config/alacritty/themes/no-cl.yaml
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/mine?userId=1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/mine/1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/mine/1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts/1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts?userId=3
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts?userId=2
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts?userId=1
+http get --headers [Authorization 'Basic 2'] http://localhost:3000/posts?userId=2
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts
+http delete --headers [Authorization 'Basic 2'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+:q
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+nvim ~/.config/nvim/lua/config/keybinds.lua
+nvim ~/.config/nvim/lua/plugins/colorschemes.lua
+unzip ~/Downloads/FiraCode.zip
+ls
+rm -rf FiraCodeNerdFont*
+exit
+fc-list 
+fc-list
+fc-list | grep
+fc-list | grep --help
+fc-list | grep Font
+fc-list | grep Fira
+fc-list | grep Hack
+fc-list | grep Droid
+fc-list | grep Droid Sans
+fc-list | grep DroidSans
+exit

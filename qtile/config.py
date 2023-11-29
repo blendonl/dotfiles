@@ -9,6 +9,7 @@ import subprocess
 
 mod = "mod4"
 terminal = guess_terminal()
+last_client = None
 
 binds.setModAndTerminal(mod, terminal)
 keys = binds.setKeys()
@@ -32,8 +33,9 @@ groups.append(
     ScratchPad("scratchpad",
                [
                    DropDown("terminal",
-                            terminal,
+                            '/home/notpc/.config/qtile/alacritty-cwd.sh',
                             opacity=opacity,
+                            match=Match(wm_class="Alacritty"),
                             y=y_position,
                             x=x_position,
                             height=height,
@@ -221,3 +223,9 @@ wmname = "LG3D"
 @hook.subscribe.startup_once
 def autostart_once():
     subprocess.run('/home/notpc/.config/qtile/autostart.sh')
+
+
+@hook.subscribe.client_focus
+def win_focus(current_client):
+    last_client = current_client
+    print(last_client)
