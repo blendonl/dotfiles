@@ -73,8 +73,8 @@ return {
 				color_overrides = {
 					all = {
 						base = "#000000",
-						mantle = "#242526",
-						crust = "#474747",
+						mantle = "#0a0a0a",
+						crust = "#111111",
 					},
 					latte = {},
 					frappe = {},

@@ -16,6 +16,8 @@ return {
 		},
 		config = function()
 			-- vim.cmd.colorscheme("no-clown-fiesta")
+			vim.cmd("highlight Normal guibg='#000000' guifg=white")
+			vim.o.backgrounds = "dark"
 		end,
 	},
 }
