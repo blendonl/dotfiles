@@ -1,15 +1,5 @@
 return {
 	{
-		-- Theme inspired by Atom
-		"nordtheme/vim",
-		priority = 1000,
-		config = function()
-			vim.cmd.colorscheme("nord")
-			vim.cmd("highlight Normal guibg='#0f0f0f' guifg=white")
-			vim.o.backgrounds = "dark"
-		end,
-	},
-	{
 		"catppuccin/nvim",
 		lazy = false,
 		name = "catppuccin",
@@ -92,26 +82,7 @@ return {
 					mocha = {},
 				},
 			})
-			vim.cmd.colorscheme("catppuccin-mocha")
-		end,
-	},
-	{
-		"aktersnurra/no-clown-fiesta.nvim",
-		opts = {
-
-			transparent = false, -- Enable this to disable the bg color
-			styles = {
-				-- You can set any of the style values specified for `:h nvim_set_hl`
-				comments = { "italic" },
-				keywords = { "italic" },
-				functions = { "italic" },
-				variables = { "italic" },
-				type = { bold = true },
-				lsp = { underline = true },
-			},
-		},
-		config = function()
-			-- vim.cmd.colorscheme("no-clown-fiesta")
+			-- vim.cmd.colorscheme("catppuccin-mocha")
 		end,
 	},
 }

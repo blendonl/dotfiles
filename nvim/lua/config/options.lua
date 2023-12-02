@@ -97,3 +97,4 @@ require("telescope").load_extension("harpoon")
 
 -- vim.cmd("highlight Normal guibg='#202020' guifg=white")
 -- vim.o.backgrounds = "dark"
+vim.cmd.colorscheme("catppuccin-mocha")
