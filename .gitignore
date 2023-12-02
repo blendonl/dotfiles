@@ -8,4 +8,6 @@
 /dconf
 /Postman
 
+/nushell/history.txt
+
 /qtile/__pycache__
