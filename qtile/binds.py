@@ -70,6 +70,6 @@ def setKeys():
             desc="Toggle floating on the focused window"),
         Key([mod, "control"], "r", lazy.reload_config(), desc="Reload the config"),
         Key([mod, "control"], "q", lazy.shutdown(), desc="Shutdown Qtile"),
-        Key([mod], "r", lazy.spawn("launcher_t4"),
+        Key([mod], "r", lazy.spawn("launcher_t2"),
             desc="Spawn a command using a prompt widget"),
     ]
