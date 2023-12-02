@@ -717,3 +717,149 @@ fc-list | grep Droid
 fc-list | grep Droid Sans
 fc-list | grep DroidSans
 exit
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/users
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users?name=admin
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users?name=admin1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/ {name:'ardit', email:'ardit@email.com'}
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/1
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/2
+http patch --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/ {name:'Ardit', email:'ardit@email.com'}
+http patch --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/2 {name:'Ardit', email:'ardit@email.com'}
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/2/posts
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/users/2
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users/
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/ {name:'ardit', email:'ardit@email.com'}
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/users
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts
+http post --headers [Authorization 'Basic 1'] http://localhost:3000/posts {title: 'hello', description: 'hello world'}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/ {name:'title', email:'hello world'}
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/posts/ {name:'title', email:'hello world'}
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/posts/ {name:'title', description:'hello world'}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/ {name:'title', description:'hello world'}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/ {title:'title1', description:'hello world'}
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', description:'hello world'}
+http delete --headers [Authorization 'Basic 6'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine
+http post --headers [Authorization 'Basic 1']  --content-type application/json  http://localhost:3000/users/ {name:'ardit', email:'ardit1@email.com'}
+http get --headers [Authorization 'Basic 7'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine/1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', description:'hello world'}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: 'true'}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: True}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/mine/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/mine/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world'}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: 1}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: 'true'}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/
+http delete --headers [Authorization 'Basic 6'] http://localhost:3000/posts/1
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/ {title:'title1', content:'hello world'}
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/mine
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/
+http delete --headers [Authorization 'Basic 1'] http://localhost:3000/posts/2
+http get --headers [Authorization 'Basic 1'] http://localhost:3000/posts/
+http delete --headers [Authorization 'Basic 6'] http://localhost:3000/posts/2
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?title=hello
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&published&title=hello
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=hello&!published&title=hello
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?content=published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published="false"
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=False
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=dsf
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published=
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=dfsfs
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=false
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=true
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?published=0
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?!published
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?authorId=1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/posts?authorId=6
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organizations
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization
+exit
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/
+http post --headers [Authorization 'Basic 6'] http://localhost:3000/organization/ {name: 'name'}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/posts/1 {title:'title3', content:'hello world', published: true}
+http patch --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/organization {name:'name1'}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/organization {name:'name1'}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/organization/1/addUser {userId: 1}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/organization/1/employees {userId: 1}
+http post --headers [Authorization 'Basic 6']  --content-type application/json  http://localhost:3000/organization/1/employees {id: 1}
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/2
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/2/emploeey
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/2/emploesd
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/2/addLogo
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/2/getLogo
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1/logo
+yay -S postman
+cd ~
+ls
+http post --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1/employee 1
+http post --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1/employee {1}
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1//employees
+http get --headers [Authorization 'Basic 6'] http://localhost:3000/organization/1/employees

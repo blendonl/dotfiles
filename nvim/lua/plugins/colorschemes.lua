@@ -84,8 +84,8 @@ return {
 
 				color_overrides = {
 					all = {
-						base = "#0f0f0f",
-						mantle = "#212121",
+						base = "#18191A",
+						mantle = "#242526",
 						crust = "#474747",
 					},
 					latte = {},
