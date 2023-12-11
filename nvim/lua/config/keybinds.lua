@@ -5,12 +5,6 @@ local Util = require("lazyvim.util")
 -- use `vim.keymap.set` instead
 local map = Util.safe_keymap_set
 
--- better up/down
-map({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
-map({ "n", "x" }, "<Down>", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
-map({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
-map({ "n", "x" }, "<Up>", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
-
 -- Move to window using the <ctrl> hjkl keys
 map("n", "<C-h>", "<C-w>h", { desc = "Go to left window", remap = true })
 map("n", "<C-j>", "<C-w>j", { desc = "Go to lower window", remap = true })
@@ -229,6 +223,7 @@ map('n',
 map('n', "<leader>,", "<cmd>Telescope buffers sort_mru=true sort_lastused=true<cr>", { desc = "Switch Buffer" })
 map('n', "<leader>/", Util.telescope("live_grep"), { desc = "Grep (root dir)" })
 map('n', "<leader>:", "<cmd>Telescope command_history<cr>", { desc = "Command History" })
+map('n', "<leader>m", "<cmd>Telescope harpoon marks<cr>", { desc = "Command History" })
 map('n', "<leader><space>", Util.telescope("files"), { desc = "Find Files (root dir)" })
 map('n', "<leader>fb", "<cmd>Telescope buffers sort_mru=true sort_lastused=true<cr>", { desc = "Buffers" })
 map('n', "<leader>fc", Util.telescope.config_files(), { desc = "Find Config File" })

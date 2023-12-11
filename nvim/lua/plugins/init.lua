@@ -3,6 +3,7 @@
 -- 	{ import = "plugins.ui" },
 -- }
 return {
+
 	{ import = "plugins.ui" },
 	{ import = "plugins.coding" },
 	{ import = "plugins.editor" },

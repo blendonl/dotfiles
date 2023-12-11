@@ -8,6 +8,7 @@ return {
 			"hrsh7th/cmp-buffer",
 			"hrsh7th/cmp-path",
 			"saadparwaiz1/cmp_luasnip",
+			"f3fora/cmp-spell",
 		},
 		opts = function()
 			vim.api.nvim_set_hl(0, "CmpGhostText", { link = "Comment", default = true })
@@ -68,6 +69,16 @@ return {
 			for _, source in ipairs(opts.sources) do
 				source.group_index = source.group_index or 1
 			end
+			table.insert(opts, {
+
+				name = "spell",
+				option = {
+					keep_all_entries = false,
+					enable_in_context = function()
+						return true
+					end,
+				},
+			})
 			require("cmp").setup(opts)
 		end,
 	},
