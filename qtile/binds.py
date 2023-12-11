@@ -56,6 +56,29 @@ def setKeys():
             desc="Toggle between split and unsplit sides of stack",
         ),
         Key([mod], "Return", lazy.spawn(terminal), desc="Launch terminal"),
+        Key([mod], "v", lazy.spawn(
+            "/home/notpc/.config/rofi/applets/bin/volume.sh"), desc="Launch terminal"),
+
+        # Volume
+        Key([], "XF86AudioLowerVolume", lazy.spawn(
+            "amixer -Mq set Master,0 5%- unmute"), desc="volume down"),
+        Key([], "XF86AudioRaiseVolume", lazy.spawn(
+            "amixer -Mq set Master,0 5%+ unmute"), desc="volume up"),
+        Key([], "XF86AudioMute", lazy.spawn(
+            "amixer set Master toggle"), desc="Mute sound"),
+
+        # Music
+        Key([], "XF86AudioNext", lazy.spawn(
+            "dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Next"),
+            desc="Mute sound"),
+
+        Key([], "XF86AudioPrev", lazy.spawn(
+            "dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.Previous"),
+            desc="Mute sound"),
+        Key([], "XF86AudioPlay", lazy.spawn(
+            "dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause"),
+            desc="Mute sound"),
+
 
         # Toggle between different layouts as defined below
         Key([mod], "Tab", lazy.next_layout(), desc="Toggle between layouts"),

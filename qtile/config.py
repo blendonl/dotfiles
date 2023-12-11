@@ -162,7 +162,7 @@ layouts = [
 
 widget_defaults = dict(
     font="HackNerdFontMono",
-    fontsize=18,
+    fontsize=14,
     padding=7,
 )
 extension_defaults = widget_defaults.copy()

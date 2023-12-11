@@ -2,15 +2,10 @@
 from libqtile.config import Screen
 from libqtile import bar, widget
 from qtile_extras import widget as extrawidgets
-from qtile_extras.widget.decorations import RectDecoration
 from qtile_extras.resources import wallpapers
 
 decoration_group = {
-    "decorations": [
-        RectDecoration(colour="#004040", radius=10,
-                       filled=False, padding_y=4, group=True)
-    ],
-    "padding": 7,
+    "padding": 9,
 }
 
 
@@ -19,24 +14,26 @@ def getScreens():
         Screen(
             top=bar.Bar(
                 [
-                    extrawidgets.CurrentLayout(**decoration_group),
+                    extrawidgets.CurrentLayout(),
                     extrawidgets.GroupBox(),
                     extrawidgets.Spacer(length=bar.STRETCH),
                     extrawidgets.Clock(format="%d-%m %a %I:%M %p"),
                     extrawidgets.Spacer(length=bar.STRETCH),
-                    extrawidgets.Systray(),
+                    extrawidgets.Systray(**decoration_group),
                     # extrawidgets.StatusNotifier(),
-                    extrawidgets.UPowerWidget(),
-                    extrawidgets.WiFiIcon(),
+                    # extrawidgets.UPowerWidget(),
+                    extrawidgets.WiFiIcon(**decoration_group),
                     extrawidgets.GithubNotifications(),
-                    extrawidgets.Mpris2(),
+                    extrawidgets.Mpris2(
+                        format='{xesam:title} - {xesam:artist}'
+                    ),
                     widget.Sep(),
                     extrawidgets.Battery(
                         format="{percent:2.0%}({hour:d}:{min:02d}) {watt:.2f} W"),
                     # widget.WindowName(),
                     # widget.Systray(),
                 ],
-                40,
+                35,
                 margin=7,
                 # border_width=[2, 0, 2, 0],  # Draw top and bottom borders
                 # border_color=["ff00ff", "000000", "ff00ff", "000000"]  # Borders are magenta
