@@ -1,9 +1,6 @@
--- This file is automatically loaded by lazyvim.config.init
 local Util = require("lazyvim.util")
 
--- DO NOT USE THIS IN YOU OWN CONFIG!!
--- use `vim.keymap.set` instead
-local map = Util.safe_keymap_set
+local map = vim.keymap.set
 
 -- Move to window using the <ctrl> hjkl keys
 map("n", "<C-h>", "<C-w>h", { desc = "Go to left window", remap = true })
