@@ -1,8 +1,9 @@
 -- This file is automatically loaded by plugins.core
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
-vim.opt.spell = true
-vim.opt.spelllang = { "en_us" }
+
+-- vim.opt.spell = true
+-- vim.opt.spelllang = { "en_us" }
 
 vim.g.autoformat = true
 
@@ -10,6 +11,7 @@ vim.g.root_spec = { "lsp", { ".git", "lua" }, "cwd" }
 
 local opt = vim.opt
 
+opt.breakindent = true
 opt.autowrite = true -- Enable auto write
 opt.clipboard = "unnamedplus" -- Sync with system clipboard
 opt.completeopt = "menu,menuone,noselect"

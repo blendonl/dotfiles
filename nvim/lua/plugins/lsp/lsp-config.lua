@@ -3,11 +3,11 @@ return {
 		"neovim/nvim-lspconfig",
 		event = { "BufReadPre", "BufNewFile" },
 		dependencies = {
-			{ "folke/neodev.nvim", event = "LspAttach", opts = {} },
+			"folke/neodev.nvim",
+			{ "j-hui/fidget.nvim", opts = {} },
 			"mason.nvim",
-			"williamboman/mason-lspconfig.nvim",
+			{ "williamboman/mason-lspconfig.nvim", opts = {} },
 		},
-		---@class PluginLspOpts
 		opts = {
 			-- options for vim.diagnostic.config()
 			diagnostics = {
