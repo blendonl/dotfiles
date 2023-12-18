@@ -1,3 +1,0 @@
-2023-11-29 07:23:35.308 [info] Started initializing default profile extensions in extensions installation folder. file:///home/notpc/.vscode-insiders/extensions
-2023-11-29 07:23:35.463 [warning] Failed to create default profile extensions manifest in extensions installation folder. file:///home/notpc/.vscode-insiders/extensions Unable to create file 'vscode-userdata:/home/notpc/.vscode-insiders/extensions/extensions.json' that already exists when overwrite flag is not set
-2023-11-29 07:23:35.463 [info] Completed initializing default profile extensions in extensions installation folder. file:///home/notpc/.vscode-insiders/extensions
