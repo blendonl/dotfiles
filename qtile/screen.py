@@ -20,20 +20,12 @@ def getScreens():
                     extrawidgets.Clock(format="%d-%m %a %I:%M %p"),
                     extrawidgets.Spacer(length=bar.STRETCH),
                     extrawidgets.Systray(**decoration_group),
-                    # extrawidgets.StatusNotifier(),
-                    # extrawidgets.UPowerWidget(),
-                    extrawidgets.WiFiIcon(**decoration_group),
                     extrawidgets.GithubNotifications(),
                     extrawidgets.Mpris2(
                         format='{xesam:title} - {xesam:artist}'
                     ),
-                    widget.Sep(),
-                    extrawidgets.Battery(
-                        format="{percent:2.0%}({hour:d}:{min:02d}) {watt:.2f} W"),
-                    # widget.WindowName(),
-                    # widget.Systray(),
                 ],
-                35,
+                30,
                 margin=7,
                 # border_width=[2, 0, 2, 0],  # Draw top and bottom borders
                 # border_color=["ff00ff", "000000", "ff00ff", "000000"]  # Borders are magenta
