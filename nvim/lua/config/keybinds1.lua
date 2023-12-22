@@ -110,19 +110,19 @@ map("n", "<leader>ul", function() Util.toggle.number() end, { desc = "Toggle Lin
 map("n", "<leader>ud", function() Util.toggle.diagnostics() end, { desc = "Toggle Diagnostics" })
 local conceallevel = vim.o.conceallevel > 0 and vim.o.conceallevel or 3
 map("n", "<leader>uc", function() Util.toggle("conceallevel", false, { 0, conceallevel }) end,
-  { desc = "Toggle Conceal" })
+	{ desc = "Toggle Conceal" })
 if vim.lsp.inlay_hint then
-  map("n", "<leader>uh", function() vim.lsp.inlay_hint(0, nil) end, { desc = "Toggle Inlay Hints" })
+	map("n", "<leader>uh", function() vim.lsp.inlay_hint(0, nil) end, { desc = "Toggle Inlay Hints" })
 end
 map("n", "<leader>uT", function() if vim.b.ts_highlight then vim.treesitter.stop() else vim.treesitter.start() end end,
-  { desc = "Toggle Treesitter Highlight" })
+	{ desc = "Toggle Treesitter Highlight" })
 
 -- lazygit
 map("n", "<leader>gg",
-  function() Util.terminal({ "lazygit" }, { cwd = Util.root(), esc_esc = false, ctrl_hjkl = false }) end,
-  { desc = "Lazygit (root dir)" })
+	function() Util.terminal({ "lazygit" }, { cwd = Util.root(), esc_esc = false, ctrl_hjkl = false }) end,
+	{ desc = "Lazygit (root dir)" })
 map("n", "<leader>gG", function() Util.terminal({ "lazygit" }, { esc_esc = false, ctrl_hjkl = false }) end,
-  { desc = "Lazygit (cwd)" })
+	{ desc = "Lazygit (cwd)" })
 
 -- quit
 map("n", "<leader>qq", "<cmd>qa<cr>", { desc = "Quit all" })
@@ -171,54 +171,26 @@ map('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Code Action' })
 
 
 require('which-key').register {
-  ['<leader>w'] = { name = ' Windows', _ = 'which_key_ignore' },
-  ['<leader>r'] = { name = ' Rename' },
-  ['<leader>c'] = { name = ' Code' },
-  ['<leader>s'] = { name = ' Search' },
-  ['<leader>b'] = { name = ' Buffers' },
-  ['<leader>d'] = { name = ' Document' },
-  ['<leader>f'] = { name = ' File' },
-  ['<leader>g'] = { name = ' Git' },
-  ['<leader>q'] = { name = ' Session' },
-  ['<leader>u'] = { name = ' Options' },
-  ['<leader>x'] = { name = ' List' },
-  ['<leader><Tab>'] = { name = ' Tabs' },
+	['<leader>w'] = { name = ' Windows', _ = 'which_key_ignore' },
+	['<leader>r'] = { name = ' Rename' },
+	['<leader>c'] = { name = ' Code' },
+	['<leader>s'] = { name = ' Search' },
+	['<leader>b'] = { name = ' Buffers' },
+	['<leader>d'] = { name = ' Document' },
+	['<leader>f'] = { name = ' File' },
+	['<leader>g'] = { name = ' Git' },
+	['<leader>q'] = { name = ' Session' },
+	['<leader>u'] = { name = ' Options' },
+	['<leader>x'] = { name = ' List' },
+	['<leader><Tab>'] = { name = ' Tabs' },
 
 
 
-  --   ['<leader>h'] = { name = 'More git', _ = 'which_key_ignore' },
-  --   ['<leader>r'] = { name = '[R]ename', _ = 'which_key_ignore' },
-  --   ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
-  --   ['<leader>w'] = { name = '[W]orkspace', _ = 'which_key_ignore' },
+	--   ['<leader>h'] = { name = 'More git', _ = 'which_key_ignore' },
+	--   ['<leader>r'] = { name = '[R]ename', _ = 'which_key_ignore' },
+	--   ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
+	--   ['<leader>w'] = { name = '[W]orkspace', _ = 'which_key_ignore' },
 }
-
-map('n',
-  "<leader>fe",
-  function()
-    require("neo-tree.command").execute({ toggle = true, dir = require('lazyvim.util').root() })
-  end,
-  { desc = "Explorer NeoTree (root dir)" })
-map('n',
-  "<leader>fE",
-  function()
-    require("neo-tree.command").execute({ toggle = true, dir = vim.loop.cwd() })
-  end,
-  { desc = "Explorer NeoTree (cwd)" })
-map('n', "<leader>e", "<leader>fe", { desc = "Explorer NeoTree (root dir)", remap = true })
-map('n', "<leader>E", "<leader>fE", { desc = "Explorer NeoTree (cwd)", remap = true })
-map('n',
-  "<leader>ge",
-  function()
-    require("neo-tree.command").execute({ source = "git_status", toggle = true })
-  end,
-  { desc = "Git explorer" })
-map('n',
-  "<leader>be",
-  function()
-    require("neo-tree.command").execute({ source = "buffers", toggle = true })
-  end,
-  { desc = "Buffer explorer" })
-
 
 
 map('n', "<leader>,", "<cmd>Telescope buffers sort_mru=true sort_lastused=true<cr>", { desc = "Switch Buffer" })
@@ -256,19 +228,19 @@ map('v', "<leader>sw", Util.telescope("grep_string"), { desc = "Selection (root 
 map('v', "<leader>sW", Util.telescope("grep_string", { cwd = false }), { desc = "Selection (cwd)" })
 map('n', "<leader>uC", Util.telescope("colorscheme", { enable_preview = true }), { desc = "Colorscheme with preview" })
 map('n', "<leader>ss",
-  function()
-    require("telescope.builtin").lsp_document_symbols({
-      symbols = require("lazyvim.config").get_kind_filter(),
-    })
-  end,
-  { desc = "Goto Symbol" })
+	function()
+		require("telescope.builtin").lsp_document_symbols({
+			symbols = require("lazyvim.config").get_kind_filter(),
+		})
+	end,
+	{ desc = "Goto Symbol" })
 map('n', "<leader>sS",
-  function()
-    require("telescope.builtin").lsp_dynamic_workspace_symbols({
-      symbols = require("lazyvim.config").get_kind_filter(),
-    })
-  end,
-  { desc = "Goto Symbol (Workspace)" })
+	function()
+		require("telescope.builtin").lsp_dynamic_workspace_symbols({
+			symbols = require("lazyvim.config").get_kind_filter(),
+		})
+	end,
+	{ desc = "Goto Symbol (Workspace)" })
 
 
 
@@ -277,13 +249,13 @@ map("n", "k", "kzz")
 map("n", "G", "Gzz")
 
 map('n', '<leader>hm', function()
-require("harpoon.mark").add_file()
-end, {desc = "mark file"} )
+	require("harpoon.mark").add_file()
+end, { desc = "mark file" })
 
 map('n', '<leader>hh', function()
-require("harpoon.ui").toggle_quick_menu()
-end, {desc = "mark file"} )
+	require("harpoon.ui").toggle_quick_menu()
+end, { desc = "mark file" })
 
 map('n', '<leader>bd', function(n)
-require("mini.bufremove").delete(n, false)
-end, {desc = "mark file"} )
+	require("mini.bufremove").delete(n, false)
+end, { desc = "mark file" })
