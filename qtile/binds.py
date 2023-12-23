@@ -94,6 +94,7 @@ def setKeys():
         Key([mod, "control"], "r", lazy.reload_config(), desc="Reload the config"),
         Key([mod, "control"], "q", lazy.spawn(
             "/home/notpc/.config/rofi/powermenu/type-1/powermenu.sh"), desc="Shutdown Qtile"),
+        Key([mod], "q", lazy.spawn('dm-tool switch-to-greeter'), desc="Shutdown Qtile"),
         Key([mod], "r", lazy.spawn("/home/notpc/.config/rofi/launchers/type-1/launcher.sh"),
             desc="Spawn a command using a prompt widget"),
     ]
