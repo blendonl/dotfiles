@@ -2,6 +2,7 @@
 from libqtile.config import Screen
 from libqtile import bar, widget
 from qtile_extras import widget as extrawidgets
+from qtile_extras.popup.templates.mpris2 import COMPACT_LAYOUT
 from qtile_extras.resources import wallpapers
 
 decoration_group = {
@@ -19,9 +20,14 @@ def getScreens():
                     extrawidgets.Spacer(length=bar.STRETCH),
                     extrawidgets.Clock(format="%d-%m %a %I:%M %p"),
                     extrawidgets.Spacer(length=bar.STRETCH),
+                    extrawidgets.Volume(fmt= 'Vol: {}'),
+                    extrawidgets.Memory(),
+                    extrawidgets.DF(),
+                    extrawidgets.Wlan(),
                     extrawidgets.Systray(**decoration_group),
                     extrawidgets.GithubNotifications(),
                     extrawidgets.Mpris2(
+                        popup_layout=COMPACT_LAYOUT,
                         format='{xesam:title} - {xesam:artist}'
                     ),
                 ],

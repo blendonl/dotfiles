@@ -76,6 +76,17 @@ groups.append(
                             on_focus_lost_hide=on_focus_lost_hide,
                             width=width,
                             # warp_pointer=warp_pointer
+                            ),
+                   DropDown("spotify",
+                            "spotify",
+                            opacity=1.0,
+                            match=Match(wm_class="spotify"),
+                            y=y_position,
+                            x=x_position,
+                            height=height,
+                            on_focus_lost_hide=on_focus_lost_hide,
+                            width=width,
+                            # warp_pointer=warp_pointer
                             )
                ]
                ),
@@ -129,6 +140,12 @@ keys.extend([
         [mod],
         "d",
         lazy.group["scratchpad"].dropdown_toggle("discord"),
+        desc="dropdown"
+    ),
+    Key(
+        [mod],
+        "m",
+        lazy.group["scratchpad"].dropdown_toggle("spotify"),
         desc="dropdown"
     ),
 ])
