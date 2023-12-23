@@ -93,7 +93,7 @@ def setKeys():
             desc="Toggle floating on the focused window"),
         Key([mod, "control"], "r", lazy.reload_config(), desc="Reload the config"),
         Key([mod, "control"], "q", lazy.spawn(
-            "powermenu_t2"), desc="Shutdown Qtile"),
+            "/home/notpc/.config/rofi/powermenu/type-1/powermenu.sh"), desc="Shutdown Qtile"),
         Key([mod], "r", lazy.spawn("/home/notpc/.config/rofi/launchers/type-1/launcher.sh"),
             desc="Spawn a command using a prompt widget"),
     ]
