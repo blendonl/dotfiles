@@ -1,7 +1,7 @@
 return {
 	{
 		"folke/persistence.nvim",
-		event = "BufReadPre",
+		lazy = "true",
 		opts = { options = vim.opt.sessionoptions:get() },
 		keys = {
 			{
