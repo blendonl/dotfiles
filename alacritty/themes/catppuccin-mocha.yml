@@ -6,14 +6,6 @@ colors:
         dim_foreground: "#CDD6F4" # text
         bright_foreground: "#CDD6F4" # text
 
-    # Cursor colors
-    cursor:
-        text: "#1E1E2E" # base
-        cursor: "#F5E0DC" # rosewater
-    vi_mode_cursor:
-        text: "#1E1E2E" # base
-        cursor: "#B4BEFE" # lavender
-
     # Search colors
     search:
         matches:
