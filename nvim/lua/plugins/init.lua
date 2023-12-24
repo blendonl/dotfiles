@@ -1,7 +1,3 @@
--- local ui = require("plugins.ui")
--- return {
--- 	{ import = "plugins.ui" },
--- }
 return {
 
 	{ import = "plugins.ui" },

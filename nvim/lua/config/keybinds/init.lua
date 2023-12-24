@@ -1,8 +1,9 @@
 require("config.keybinds.editor")
 require("config.keybinds.coding")
-require("config.keybinds.tree-sitter")
+-- require("config.keybinds.tree-sitter")
 require("config.keybinds.which-key")
 require("config.keybinds.window")
+require("config.keybinds.util")
 
 local map = vim.keymap.set
 
@@ -65,7 +66,6 @@ map("n", "]q", vim.cmd.cnext, { desc = "Next quickfix" })
 -- diagnostic
 
 -- quit
-map("n", "<leader>qq", "<cmd>qa<cr>", { desc = "Quit all" })
 
 -- highlights under cursor
 map("n", "<leader>ui", vim.show_pos, { desc = "Inspect Pos" })
@@ -73,7 +73,7 @@ map("n", "<leader>ui", vim.show_pos, { desc = "Inspect Pos" })
 map("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename" })
 map("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 
-map("n", "<leader>sS", function() end, { desc = "Goto Symbol (Workspace)" })
+-- map("n", "<leader>sS", function() end, { desc = "Goto Symbol (Workspace)" })
 
 map("n", "j", "jzz")
 map("n", "k", "kzz")
