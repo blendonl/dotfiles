@@ -4,13 +4,13 @@ return {
 		branch = "v3.x",
 		cmd = "NeoTree",
 		keys = {
-			{
-				"<leader>fe",
-				function()
-					require("neo-tree.command").execute({ toggle = true, dir = require("lazyvim.util").root() })
-				end,
-				desc = "Explorer NeoTree (root dir)",
-			},
+			-- {
+			-- 	"<leader>fe",
+			-- 	function()
+			-- 		require("neo-tree.command").execute({ toggle = true, dir = require("lazyvim.util").root() })
+			-- 	end,
+			-- 	desc = "Explorer NeoTree (root dir)",
+			-- },
 			{
 				"<leader>fE",
 				function()

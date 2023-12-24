@@ -23,13 +23,6 @@ return {
 			end,
 		},
 		init = function()
-			local Util = require("lazyvim.util")
-			-- when noice is not enabled, install notify on VeryLazy
-			if not Util.has("noice.nvim") then
-				Util.on_very_lazy(function()
-					vim.notify = require("notify")
-				end)
-			end
 		end,
 	},
 }

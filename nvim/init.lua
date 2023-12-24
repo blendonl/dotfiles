@@ -32,3 +32,4 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 require("config.options")
 require("config.keybinds")
 require("config.commands")
+require("config.java")

@@ -1,9 +1,14 @@
-return {
-	{
-
-		"williamboman/mason.nvim",
-		cmd = "Mason",
-		build = ":MasonUpdate",
-		opts = {},
-	},
-}
+return {}
+-- return {
+-- 	{
+--
+-- 		"williamboman/mason.nvim",
+-- 		cmd = "Mason",
+-- 		build = ":MasonUpdate",
+-- 		opts = {
+-- 			ensure_installed = {
+-- 				java = 'jtls',
+-- 			}
+-- 		},
+-- 	},
+-- }
