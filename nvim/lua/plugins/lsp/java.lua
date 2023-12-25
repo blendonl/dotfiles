@@ -11,9 +11,11 @@ return {
 			local path_to_jar = plugins_dir .. 'org.eclipse.equinox.launcher_1.6.600.v20231106-1826.jar'
 			local path_to_lombok = '/home/notpc/.local/share/nvim/mason/packages/jdtls/lombok.jar'
 
-			local workspace_path = "/home/notpc/Personal/java/"
+			local workspace_path = "/home/notpc/Personal/"
 			local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":p:h:t")
 			local workspace_dir = workspace_path .. project_name
+
+			os.execute('mkdir -p ' .. workspace_dir)
 
 			local config = {
 				cmd = {
@@ -47,12 +49,12 @@ return {
 						configuration = {
 							updateBuildConfiguration = "interactive",
 							runtimes = {
+								-- {
+								-- 	name = "JavaSE-21",
+								-- 	path = "~/.sdkman/candidates/java/21.0.1-oracle",
+								-- },
 								{
-									name = "JavaSE-21",
-									path = "~/.sdkman/candidates/java/21.0.1-oracle",
-								},
-								{
-									name = "JavaSE-21",
+									name = "JavaSE-17",
 									path = "~/.sdkman/candidates/java/17.0.9-oracle/",
 								},
 							},
