@@ -4,6 +4,7 @@ require("config.keybinds.coding")
 require("config.keybinds.which-key")
 require("config.keybinds.window")
 require("config.keybinds.util")
+require("config.keybinds.lsp")
 
 local map = vim.keymap.set
 
@@ -13,8 +14,8 @@ map("n", "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 
 -- Move Lines
 map("n", "<A-j>", "<cmd>m .+1<cr>==", { desc = "Move down" })
-map("n", "<A-k>", "<cmd>m .-2<cr>==", { desc = "Move up" })
 map("i", "<A-j>", "<esc><cmd>m .+1<cr>==gi", { desc = "Move down" })
+map("n", "<A-k>", "<cmd>m .-2<cr>==", { desc = "Move up" })
 map("i", "<A-k>", "<esc><cmd>m .-2<cr>==gi", { desc = "Move up" })
 map("v", "<A-j>", ":m '>+1<cr>gv=gv", { desc = "Move down" })
 map("v", "<A-k>", ":m '<-2<cr>gv=gv", { desc = "Move up" })
@@ -70,11 +71,15 @@ map("n", "]q", vim.cmd.cnext, { desc = "Next quickfix" })
 -- highlights under cursor
 map("n", "<leader>ui", vim.show_pos, { desc = "Inspect Pos" })
 
-map("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename" })
-map("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
+-- map("n", "<leader>rn", vim.lsp.buf.rename, { desc = "Rename" })
+-- map("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code Action" })
 
 -- map("n", "<leader>sS", function() end, { desc = "Goto Symbol (Workspace)" })
 
 map("n", "j", "jzz")
 map("n", "k", "kzz")
 map("n", "G", "Gzz")
+
+map("n", "<leader>mh", function()
+	require("memento").toggle()
+end, { desc = "Momento toggle" })

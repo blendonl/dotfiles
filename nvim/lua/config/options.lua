@@ -1,6 +1,4 @@
 -- This file is automatically loaded by plugins.core
-vim.g.mapleader = " "
-vim.g.maplocalleader = "\\"
 
 -- vim.opt.spell = true
 -- vim.opt.spelllang = { "en_us" }
