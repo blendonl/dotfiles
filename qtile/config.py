@@ -30,66 +30,83 @@ groups = [Group(i) for i in "123456789"]
 
 
 groups.append(
-    ScratchPad("scratchpad",
-               [
-                   DropDown("terminal",
-                            '/home/notpc/.config/qtile/alacritty-cwd.sh',
-                            opacity=opacity,
-                            match=Match(wm_class="Alacritty"),
-                            y=y_position,
-                            x=x_position,
-                            height=height,
-                            width=width,
-                            on_focus_lost_hide=on_focus_lost_hide,
-                            # warp_pointer=warp_pointer
-                            ),
-
-                   DropDown("terminal1",
-                            terminal,
-                            opacity=opacity,
-                            y=y_position,
-                            x=x_position,
-                            height=height,
-                            width=width,
-                            on_focus_lost_hide=on_focus_lost_hide,
-                            # warp_pointer=warp_pointer
-                            ),
-
-                   DropDown("browser",
-                            "firefox-developer-edition",
-                            match=Match(wm_class="firefoxdeveloperedition"),
-                            opacity=opacity,
-                            y=y_position,
-                            x=x_position,
-                            height=height,
-                            on_focus_lost_hide=on_focus_lost_hide,
-                            width=width,
-                            # warp_pointer=warp_pointer
-                            ),
-                   DropDown("discord",
-                            "discord",
-                            opacity=1.0,
-                            match=Match(wm_class="discord"),
-                            y=y_position,
-                            x=x_position,
-                            height=height,
-                            on_focus_lost_hide=on_focus_lost_hide,
-                            width=width,
-                            # warp_pointer=warp_pointer
-                            ),
-                   DropDown("spotify",
-                            "spotify",
-                            opacity=1.0,
-                            match=Match(wm_class="spotify"),
-                            y=y_position,
-                            x=x_position,
-                            height=height,
-                            on_focus_lost_hide=on_focus_lost_hide,
-                            width=width,
-                            # warp_pointer=warp_pointer
-                            )
-               ]
-               ),
+    ScratchPad(
+        "scratchpad",
+        [
+            DropDown(
+                "terminal",
+                "/home/notpc/.config/qtile/alacritty-cwd.sh",
+                opacity=opacity,
+                match=Match(wm_class="Alacritty"),
+                y=y_position,
+                x=x_position,
+                height=height,
+                width=width,
+                on_focus_lost_hide=on_focus_lost_hide,
+                # warp_pointer=warp_pointer
+            ),
+            DropDown(
+                "terminal1",
+                terminal,
+                opacity=opacity,
+                y=y_position,
+                x=x_position,
+                height=height,
+                width=width,
+                on_focus_lost_hide=on_focus_lost_hide,
+                # warp_pointer=warp_pointer
+            ),
+            DropDown(
+                "browser",
+                "firefox-developer-edition",
+                match=Match(wm_class="firefoxdeveloperedition"),
+                opacity=opacity,
+                y=y_position,
+                x=x_position,
+                height=height,
+                on_focus_lost_hide=on_focus_lost_hide,
+                width=width,
+                # warp_pointer=warp_pointer
+            ),
+            DropDown(
+                "discord",
+                "discord",
+                opacity=1.0,
+                match=Match(wm_class="discord"),
+                y=y_position,
+                x=x_position,
+                height=height,
+                on_focus_lost_hide=on_focus_lost_hide,
+                width=width,
+                # warp_pointer=warp_pointer
+            ),
+            DropDown(
+                "spotify",
+                "spotify",
+                opacity=1.0,
+                match=Match(wm_class="spotify"),
+                y=y_position,
+                x=x_position,
+                height=height,
+                on_focus_lost_hide=on_focus_lost_hide,
+                width=width,
+                # warp_pointer=warp_pointer
+            ),
+            DropDown(
+                "postman",
+                "postman",
+                opacity=1.0,
+                match=Match(wm_class="postman"),
+                y=y_position,
+                x=x_position,
+                height=height,
+                on_focus_lost_hide=on_focus_lost_hide,
+                width=width,
+                # warp_pointer=warp_pointer
+            ),
+        ],
+        single=True,
+    ),
 )
 
 for i in "123456789":
@@ -107,8 +124,7 @@ for i in "123456789":
                 [mod, "shift"],
                 i,
                 lazy.window.togroup(i, switch_group=True),
-                desc="Switch to & move focused window to group {}".format(
-                    i),
+                desc="Switch to & move focused window to group {}".format(i),
             ),
             # Or, use below if you prefer not to switch to that group.
             # # mod1 + shift + letter of group = move focused window to group
@@ -117,53 +133,53 @@ for i in "123456789":
         ]
     )
 
-keys.extend([
-    Key(
-        [],
-        "F1",
-        lazy.group["scratchpad"].dropdown_toggle("terminal"),
-        desc="alacritty dropdown"
-    ),
-    Key(
-        [],
-        "F2",
-        lazy.group["scratchpad"].dropdown_toggle("terminal1"),
-        desc="alacritty dropdown"
-    ),
-    Key(
-        [],
-        "F3",
-        lazy.group["scratchpad"].dropdown_toggle("browser"),
-        desc="alacritty dropdown"
-    ),
-    Key(
-        [mod],
-        "d",
-        lazy.group["scratchpad"].dropdown_toggle("discord"),
-        desc="dropdown"
-    ),
-    Key(
-        [mod],
-        "m",
-        lazy.group["scratchpad"].dropdown_toggle("spotify"),
-        desc="dropdown"
-    ),
-])
+keys.extend(
+    [
+        Key(
+            [],
+            "F1",
+            lazy.group["scratchpad"].dropdown_toggle("terminal"),
+            desc="alacritty dropdown",
+        ),
+        Key(
+            [],
+            "F2",
+            lazy.group["scratchpad"].dropdown_toggle("terminal1"),
+            desc="alacritty dropdown",
+        ),
+        Key(
+            [],
+            "F3",
+            lazy.group["scratchpad"].dropdown_toggle("browser"),
+            desc="alacritty dropdown",
+        ),
+        Key(
+            [mod],
+            "d",
+            lazy.group["scratchpad"].dropdown_toggle("discord"),
+            desc="dropdown",
+        ),
+        Key(
+            [mod],
+            "m",
+            lazy.group["scratchpad"].dropdown_toggle("spotify"),
+            desc="dropdown",
+        ),
+        Key(
+            [mod],
+            "p",
+            lazy.group["scratchpad"].dropdown_toggle("postman"),
+            desc="dropdown",
+        ),
+    ]
+)
 
 layouts = [
     layout.Columns(
-        border_focus="#6abf8c",
-        border_normal="#6a6a6a",
-        border_width=2,
-        margin=7
-
+        border_focus="#6abf8c", border_normal="#6a6a6a", border_width=2, margin=7
     ),
     layout.MonadTall(
-        border_focus="#8f8f8f",
-        border_normal="#000000",
-        border_width=2,
-        margin=10
-
+        border_focus="#8f8f8f", border_normal="#000000", border_width=2, margin=10
     ),
     # layout.Max(),
     layout.Stack(num_stacks=2),
@@ -187,10 +203,15 @@ extension_defaults = widget_defaults.copy()
 
 # Drag floating layouts.
 mouse = [
-    Drag([mod], "Button1", lazy.window.set_position_floating(),
-         start=lazy.window.get_position()),
-    Drag([mod], "Button3", lazy.window.set_size_floating(),
-         start=lazy.window.get_size()),
+    Drag(
+        [mod],
+        "Button1",
+        lazy.window.set_position_floating(),
+        start=lazy.window.get_position(),
+    ),
+    Drag(
+        [mod], "Button3", lazy.window.set_size_floating(), start=lazy.window.get_size()
+    ),
     Click([mod], "Button2", lazy.window.bring_to_front()),
 ]
 
@@ -213,7 +234,7 @@ floating_layout = layout.Floating(
         Match(wm_class="ssh-askpass"),  # ssh-askpass
         Match(title="branchdialog"),  # gitk
         Match(title="pinentry"),  # GPG key password entry
-    ]
+    ],
 )
 auto_fullscreen = True
 focus_on_window_activation = "smart"
@@ -239,7 +260,7 @@ wmname = "LG3D"
 
 @hook.subscribe.startup_once
 def autostart_once():
-    subprocess.run('/home/notpc/.config/qtile/autostart.sh')
+    subprocess.run("/home/notpc/.config/qtile/autostart.sh")
 
 
 @hook.subscribe.client_focus
