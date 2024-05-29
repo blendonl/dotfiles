@@ -1,0 +1,24 @@
+import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
+
+[font]
+size = 12
+
+[font.bold]
+family = "JetBrainsMono Nerd Font"
+
+[font.italic]
+family = "JetBrainsMono Nerd Font"
+
+[font.normal]
+family = "JetBrainsMono Nerd Font"
+
+[window.padding]
+x = 11
+y = 11
+
+[env]
+term = "xterm-256color"
+
+[shell] 
+program = "/usr/bin/tmux"
+args = ["new-session", "-A","-d", "-s", "main",]

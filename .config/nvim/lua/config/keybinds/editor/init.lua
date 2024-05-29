@@ -1,0 +1,10 @@
+require("config.keybinds.editor.telescope")
+require("config.keybinds.editor.harpoon")
+require("config.keybinds.editor.buffers")
+require("config.keybinds.editor.neo-tree")
+require("config.keybinds.editor.trouble")
+require("config.keybinds.editor.twilight")
+require("config.keybinds.editor.tree-sitter")
+
+-- vim.api.nvim_set_keymap('n', '<leader>cr', '<cmd>lua vim.lsp.buf.references()<CR>', {})
+vim.api.nvim_set_keymap("n", "<leader>cr", "<cmd>TroubleToggle lsp_references<CR>", {})
