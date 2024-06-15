@@ -7,7 +7,7 @@ import notifications from "./notifications";
 
 export default function init() {
   try {
-    gtk();
+    // gtk();
     tmux();
     matugen();
     lowBattery();

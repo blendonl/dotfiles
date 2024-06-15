@@ -19,6 +19,6 @@ y = 11
 [env]
 term = "xterm-256color"
 
-[shell] 
-program = "/usr/bin/tmux"
-args = ["new-session", "-A","-d", "-s", "main",]
+# [shell] 
+# program = "/usr/bin/tmux"
+# args = ["new-session", "-A","-d", "-s", "main",]

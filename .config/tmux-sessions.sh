@@ -3,7 +3,13 @@
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    selected=$(find ~/work ~/.config -type d | fzf)
+    selected=$(perl -MFile::Find -le '
+  sub wanted {
+    if (/^\../) {$File::Find::prune = 1; return}
+    if (-d && -e "$_/.git") {
+       print $File::Find::name; $File::Find::prune = 1
+    }
+  }; find \&wanted, @ARGV' ~/work ~/.config | fzf --no-extended)
 fi
 
 if [[ -z $selected ]]; then
@@ -14,12 +20,12 @@ selected_name=$(basename "$selected" | tr . _)
 tmux_running=$(pgrep tmux)
 
 if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-    tmux new-session -s $selected_name -c $selected
+    tmux new-session -s "$selected_name" -c "$selected"
     exit 0
 fi
 
-if ! tmux has-session -t=$selected_name 2> /dev/null; then
-    tmux new-session -ds $selected_name -c $selected
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+    tmux new-session -ds "$selected_name" -c "$selected"
 fi
 
-tmux switch-client -t $selected_name
+tmux switch-client -t "$selected_name"
