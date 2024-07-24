@@ -1,3 +1,16 @@
+nvm() {
+  echo "🚨 NVM not loaded! Loading now..."
+  unset -f nvm
+  export NVM_PREFIX=$(brew --prefix nvm)
+  [ -s "$NVM_PREFIX/nvm.sh" ] && . "$NVM_PREFIX/nvm.sh"
+  nvm "$@"
+}
+autoload -Uz compinit
+for dump in ~/.zcompdump(N.mh+24); do
+  compinit
+done
+compinit -C
+
 # Start configuration added by Zim install {{{
 #
 # User configuration sourced by interactive shells
@@ -147,3 +160,7 @@ export PATH="$PATH:/home/notpc/.local/bin"
 
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
 zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
+
+DISABLE_AUTO_UPDATE="true"
+
+# source ~/.config/zshrc.d/dots-hyprland.zsh
