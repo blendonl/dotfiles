@@ -1,5 +1,4 @@
 import GLib from "gi://GLib"
-import App from "gjs"
 
 const main = "/tmp/asztal/main.js"
 const entry = `${App.configDir}/main.ts`
@@ -12,43 +11,29 @@ const v = {
 
 try {
     switch (bundler) {
-        case "bun":
-            await Utils.execAsync([
-                "bun",
-                "build",
-                entry,
-                "--outfile",
-                main,
-                "--external",
-                "resource://*",
-                "--external",
-                "gi://*",
-                "--external",
-                "file://*",
-            ])
-            break
+        case "bun": await Utils.execAsync([
+            "bun", "build", entry,
+            "--outfile", main,
+            "--external", "resource://*",
+            "--external", "gi://*",
+            "--external", "file://*",
+        ]); break
 
-        case "esbuild":
-            await Utils.execAsync([
-                "esbuild",
-                "--bundle",
-                entry,
-                "--format=esm",
-                `--outfile=${main}`,
-                "--external:resource://*",
-                "--external:gi://*",
-                "--external:file://*",
-            ])
-            break
+        case "esbuild": await Utils.execAsync([
+            "esbuild", "--bundle", entry,
+            "--format=esm",
+            `--outfile=${main}`,
+            "--external:resource://*",
+            "--external:gi://*",
+            "--external:file://*",
+        ]); break
 
         default:
             throw `"${bundler}" is not a valid bundler`
     }
 
     if (v.ags[1] < v.expect[1] || v.ags[2] < v.expect[2]) {
-        print(
-            `my config needs at least v${v.expect.join(".")}, yours is v${v.ags.join(".")}`
-        )
+        print(`my config needs at least v${v.expect.join(".")}, yours is v${v.ags.join(".")}`)
         App.quit()
     }
 
@@ -58,4 +43,4 @@ try {
     App.quit()
 }
 
-export {}
+export { }

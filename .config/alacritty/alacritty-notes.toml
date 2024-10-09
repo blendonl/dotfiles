@@ -1,0 +1,33 @@
+import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
+
+[font]
+size = 12
+
+[font.bold]
+family = "SpaceMono Nerd Font"
+
+[font.italic]
+family = "SpaceMono Nerd Font"
+
+[font.normal]
+family = "SpaceMono Nerd Font"
+
+[window.padding]
+x = 11
+y = 11
+
+[env]
+term = "xterm-256color"
+
+[shell] 
+  program = "tmux"
+  args = [
+  "new-session",
+  "-s",
+  "notes",
+  "-c",
+  "/home/notpc/notes"
+  ]
+
+
+
