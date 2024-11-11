@@ -7,7 +7,7 @@ const options = mkOptions(OPTIONS, {
   autotheme: opt(true),
 
   wallpaper: {
-    resolution: opt<import("service/wallpaper").Resolution>(1920),
+    resolution: opt<import("service/wallpaper").Resolution>(3840),
     market: opt<import("service/wallpaper").Market>("random"),
   },
 
@@ -41,7 +41,7 @@ const options = mkOptions(OPTIONS, {
       border: opt("#080808"),
     },
 
-    blur: opt(0),
+    blur: opt(20),
     scheme: opt<"dark" | "light">("dark"),
     widget: { opacity: opt(94) },
     border: {
@@ -49,7 +49,7 @@ const options = mkOptions(OPTIONS, {
       opacity: opt(96),
     },
 
-    shadows: opt(false),
+    shadows: opt(true),
     padding: opt(7),
     spacing: opt(12),
     radius: opt(11),
@@ -59,7 +59,7 @@ const options = mkOptions(OPTIONS, {
 
   font: {
     size: opt(13),
-    name: opt("JetBrainsMono Nerd Font Regular"),
+    name: opt("Ubuntu Nerd Font"),
   },
 
   bar: {
@@ -69,7 +69,7 @@ const options = mkOptions(OPTIONS, {
     transparent: opt(false),
     layout: {
       start: opt<Array<import("widget/bar/Bar").BarWidget>>([
-        "battery",
+        "screenrecord",
         "expander",
         "messages",
       ]),
@@ -79,8 +79,8 @@ const options = mkOptions(OPTIONS, {
         "expander",
         "systray",
         "colorpicker",
-        "screenrecord",
         "system",
+        "battery",
         "powermenu",
       ]),
     },
@@ -96,11 +96,11 @@ const options = mkOptions(OPTIONS, {
       action: opt(() => App.toggleWindow("launcher")),
     },
     date: {
-      format: opt("%H:%M - %A %e."),
+      format: opt("%H:%M - %A %e"),
       action: opt(() => App.toggleWindow("datemenu")),
     },
     battery: {
-      bar: opt<"hidden" | "regular" | "whole">("whole"),
+      bar: opt<"hidden" | "regular" | "whole">("regular"),
       charging: opt("#00D787"),
       percentage: opt(true),
       blocks: opt(7),
