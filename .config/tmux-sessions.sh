@@ -9,7 +9,7 @@ else
     if (-d && -e "$_/.git") {
        print $File::Find::name; $File::Find::prune = 1
     }
-  }; find \&wanted, @ARGV' ~/work ~/.config ~/personal ~/notes | fzf --no-extended)
+  }; find \&wanted, @ARGV' ~/work ~/.config ~/personal ~/notes | fzf-tmux -p --no-extended)
 fi
 
 if [[ -z $selected ]]; then
