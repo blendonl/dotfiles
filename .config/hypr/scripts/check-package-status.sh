@@ -17,11 +17,6 @@ package=$(curl -H 'Authorization: Bearer '$access_token \
 )
 
 
-echo $package
-
-
-
-
 tracking_hist=$(echo "$package" | jq -r '.package.last_client_tracking_history')
 
 status_name=$(echo "$package" | jq -r '.package.last_client_tracking_history.status_name')
