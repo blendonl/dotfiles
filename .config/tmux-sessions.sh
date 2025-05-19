@@ -6,9 +6,22 @@ else
     selected=$(perl -MFile::Find -le '
   sub wanted {
     if (/^\../) {$File::Find::prune = 1; return}
-    if (-d && -e "$_/.git") {
-       print $File::Find::name; $File::Find::prune = 1
+
+    if(index($File::Find::name, "$ENV{HOME}/.config") == 0) {
+        my $relative_path = $File::Find::name;
+        $relative_path =~ s|^$ENV{HOME}/.config/||;  
+
+        if ($relative_path !~ /\//) {
+            print $File::Find::name;  
+        }
+        return;
+
     }
+
+    if (-d && -e "$_/.git") {
+       print $File::Find::name; $File::Find::prune = 1;
+    } 
+
   }; find \&wanted, @ARGV' ~/work ~/.config ~/personal ~/notes | fzf-tmux -p --no-extended)
 fi
 
