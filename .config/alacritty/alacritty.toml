@@ -1,16 +1,15 @@
-import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
 
 [font]
-size = 12
+size = 11
 
 [font.bold]
-family = "SpaceMono Nerd Font"
+family = "SauceCodePro Nerd Font Mono"
 
 [font.italic]
-family = "SpaceMono Nerd Font"
+family = "SauceCodePro Nerd Font Mono"
 
 [font.normal]
-family = "SpaceMono Nerd Font"
+family = "SauceCodePro Nerd Font Mono"
 
 [window.padding]
 x = 11
@@ -19,6 +18,11 @@ y = 11
 [env]
 term = "xterm-256color"
 
-[shell] 
+[general]
+import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
+
+[terminal]
+
+[terminal.shell] 
 program = "tmux"
 
