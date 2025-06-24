@@ -1,0 +1,31 @@
+name: custom # use this name in your config file
+primary: "#ffffff" # buttons, fixed table columns
+secondary: "#f39c12" # method selector, some minor labels
+accent: "#ffffff" # header text, scrollbars, cursors, focus highlights
+background: "#000000" # background colors
+surface: "#000000" # panels, etc
+error: "#f38ba8" # error messages
+success: "#2ecc71" # success messages
+warning: "#f9e2af" # warning messages
+
+text_area:
+  cursor: "reverse" # style the block cursor
+  cursor_line: "underline" # style the line the cursor is on
+  selection: "reverse" # style the selected text
+  gutter: "bold #50e3c2" # style the gutter
+  matched_bracket: "black on green" # style the matched bracket
+url:
+  base: "italic #50e3c2" # style the 'base' of the url
+  protocol: "bold #b8e986" # style the protocol
+syntax:
+  json_key: "italic #4a90e2" # style json keys
+  json_number: "#50e3c2" # style json numbers
+  json_string: "#b8e986" # style json strings
+  json_boolean: "#b8e986" # style json booleans
+  json_null: "underline #b8e986" # style json null values
+
+method:
+  get: "underline #50e3c2"
+  post: "italic #b8e986"
+  put: "bold #b8e986"
+  delete: "strikethrough #b8e986"
