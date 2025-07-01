@@ -33,7 +33,21 @@ else
        print $File::Find::name; $File::Find::prune = 1;
     } 
 
-  }; find \&wanted, @ARGV' ~/dotfiles ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
+    if (-d && -e "$_/apps") {
+        my $file = $File::Find::name;
+        my $folder = "$file/apps";
+
+        opendir(my $dh, "$folder") or die "Cant open dir: $folder";
+        print $dh;
+        while (my $entry = readdir($dh)) {
+            next if $entry =~ /^\.\.?$/;
+            my $path = "$folder/$entry";
+            print "$path\n" if -d $path;
+        }
+
+    }
+
+  }; find \&wanted, @ARGV' ~/dotfiles/.config ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
 fi
 
 if [[ -z $selected ]]; then
