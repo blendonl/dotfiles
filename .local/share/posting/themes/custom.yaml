@@ -1,31 +1,31 @@
 name: custom # use this name in your config file
-primary: "#ffffff" # buttons, fixed table columns
+primary: "#a6adc8" # buttons, fixed table columns
 secondary: "#f39c12" # method selector, some minor labels
-accent: "#ffffff" # header text, scrollbars, cursors, focus highlights
+accent: "#cdd6f4" # header text, scrollbars, cursors, focus highlights
 background: "#000000" # background colors
-surface: "#000000" # panels, etc
+surface: "#1e1e2e" # panels, etc
 error: "#f38ba8" # error messages
-success: "#2ecc71" # success messages
+success: "#a6e3a1" # success messages
 warning: "#f9e2af" # warning messages
 
 text_area:
   cursor: "reverse" # style the block cursor
   cursor_line: "underline" # style the line the cursor is on
   selection: "reverse" # style the selected text
-  gutter: "bold #50e3c2" # style the gutter
+  gutter: "bold #89dceb" # style the gutter
   matched_bracket: "black on green" # style the matched bracket
 url:
-  base: "italic #50e3c2" # style the 'base' of the url
-  protocol: "bold #b8e986" # style the protocol
+  base: "italic #89dceb" # style the 'base' of the url
+  protocol: "bold #a6e3a1" # style the protocol
 syntax:
-  json_key: "italic #4a90e2" # style json keys
-  json_number: "#50e3c2" # style json numbers
-  json_string: "#b8e986" # style json strings
-  json_boolean: "#b8e986" # style json booleans
-  json_null: "underline #b8e986" # style json null values
+  json_key: "italic #89b4fa" # style json keys
+  json_number: "#89dceb" # style json numbers
+  json_string: "#a6e3a1" # style json strings
+  json_boolean: "#a6e3a1" # style json booleans
+  json_null: "underline #a6e3a1" # style json null values
 
 method:
-  get: "underline #50e3c2"
-  post: "italic #b8e986"
-  put: "bold #b8e986"
-  delete: "strikethrough #b8e986"
+  get: "underline #89dceb"
+  post: "italic #a6e3a1"
+  put: "bold #a6e3a1"
+  delete: "strikethrough #a6e3a1"

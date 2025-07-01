@@ -4,13 +4,13 @@ selected_name=$(tmux display-message -p '#S')
 selected_path=$(tmux display-message -p '#{pane_current_path}')
 
 if [[ "$selected_path" == *"work"* ]]; then
-    selected="/home/notpc/notes/work/$selected_name"
+    selected="/mnt/data/notes/work/$selected_name"
 elif [[ "$selected_path" == *"personal"* ]]; then
-    selected="/home/notpc/notes/personal/$selected_name"
+    selected="/mnt/data/notes/personal/$selected_name"
 elif [[ "$selected_name" =~ ^[0-9]+$ ]]; then
-    selected="/home/notpc/notes/general/"
+    selected="/mnt/data/notes/general/"
 else 
-    selected="/home/notpc/notes/general/$selected_name"
+    selected="/mnt/data/notes/general/$selected_name"
 fi
 
 mkdir -p $selected

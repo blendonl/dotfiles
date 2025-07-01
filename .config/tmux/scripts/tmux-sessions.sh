@@ -7,9 +7,9 @@ else
   sub wanted {
     if (/^\../) {$File::Find::prune = 1; return}
 
-    if(index($File::Find::name, "$ENV{HOME}/.config") == 0) {
+    if(index($File::Find::name, "/mnt/data/personal/dotfiles/.config") == 0) {
         my $relative_path = $File::Find::name;
-        $relative_path =~ s|^$ENV{HOME}/.config/||;  
+        $relative_path =~ s|^/mnt/data/personal/dotfiles/.config/||;  
 
         if ($relative_path !~ /\//) {
             print $File::Find::name;  
@@ -22,7 +22,7 @@ else
        print $File::Find::name; $File::Find::prune = 1;
     } 
 
-  }; find \&wanted, @ARGV' ~/work ~/.config ~/personal ~/notes | fzf-tmux -p --no-extended)
+  }; find \&wanted, @ARGV' /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
 fi
 
 if [[ -z $selected ]]; then
