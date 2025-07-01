@@ -18,11 +18,22 @@ else
 
     }
 
+    if(index($File::Find::name, "/home/notpc/dotfiles/.config") == 0) {
+        my $relative_path = $File::Find::name;
+        $relative_path =~ s|^/home/notpc/dotfiles/.config/||;  
+
+        if ($relative_path !~ /\//) {
+            print $File::Find::name;  
+        }
+        return;
+
+    }
+
     if (-d && -e "$_/.git") {
        print $File::Find::name; $File::Find::prune = 1;
     } 
 
-  }; find \&wanted, @ARGV' /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
+  }; find \&wanted, @ARGV' ~/dotfiles ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
 fi
 
 if [[ -z $selected ]]; then
