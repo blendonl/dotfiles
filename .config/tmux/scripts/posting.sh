@@ -5,13 +5,13 @@ selected_path=$(tmux display-message -p '#{pane_current_path}')
 
 
 if [[ "$selected_path" == *"work"* ]]; then
-    selected="/mnt/data/posting/collection/work/$selected_name"
+    selected="$POSTING_DATA/collection/work/$selected_name"
 elif [[ "$selected_path" == *"personal"* ]]; then
-    selected="/mnt/data/posting/collection/personal/$selected_name"
+    selected="$POSTING_DATA/collection/personal/$selected_name"
 elif [[ "$selected_name" =~ ^[0-9]+$ ]]; then
-    selected="/mnt/data/posting/collection/general/"
+    selected="$POSTING_DATA/collection/general/"
 else 
-    selected="/mnt/data/posting/collection/general/$selected_name"
+    selected="$POSTING_DATA/collection/general/$selected_name"
 fi
 
 mkdir -p $selected
