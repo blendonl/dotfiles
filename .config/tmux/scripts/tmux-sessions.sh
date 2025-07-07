@@ -42,7 +42,7 @@ else
         while (my $entry = readdir($dh)) {
             next if $entry =~ /^\.\.?$/;
             my $path = "$folder/$entry";
-            print "$path\n" if -d $path;
+            print "$path" if -d $path;
         }
 
     }
