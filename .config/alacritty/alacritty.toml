@@ -11,6 +11,9 @@ family = "FiraCode Nerd Font"
 [font.normal]
 family = "FiraCode Nerd Font"
 
+[window]
+dynamic_title = true
+
 [window.padding]
 x = 11
 y = 11

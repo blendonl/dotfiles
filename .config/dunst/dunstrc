@@ -383,7 +383,7 @@
 
 [ignore]
     # This notification will not be displayed
-    summary = "*spotify*"
+    summary = "*potify*"
     skip_display = true
 
 #[history-ignore]
