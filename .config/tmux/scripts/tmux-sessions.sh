@@ -4,6 +4,13 @@ if [[ $# -eq 1 ]]; then
     selected=$1
 else
     selected=$(perl -MFile::Find -le '
+  my @root_paths = @ARGV;
+  
+  # Print root paths first
+  for my $path (@root_paths) {
+    print $path if -d $path;
+  }
+  
   sub wanted {
     if (/^\../) {$File::Find::prune = 1; return}
 
