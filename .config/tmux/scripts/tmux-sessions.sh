@@ -45,7 +45,6 @@ else
         my $folder = "$file/apps";
 
         opendir(my $dh, "$folder") or die "Cant open dir: $folder";
-        print $dh;
         while (my $entry = readdir($dh)) {
             next if $entry =~ /^\.\.?$/;
             my $path = "$folder/$entry";
@@ -54,7 +53,7 @@ else
 
     }
 
-  }; find \&wanted, @ARGV' ~/dotfiles/.config ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
+  }; find \&wanted, @ARGV' ~/.config/nvim ~/dotfiles/.config ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
 fi
 
 if [[ -z $selected ]]; then

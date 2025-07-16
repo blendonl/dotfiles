@@ -134,3 +134,6 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 
 export EDITOR="nvim"
 
+autoload -U compinit && compinit
+
+
