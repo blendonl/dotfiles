@@ -137,3 +137,4 @@ export EDITOR="nvim"
 autoload -U compinit && compinit
 
 
+export NOTE_PATH="/mnt/data/notes"
