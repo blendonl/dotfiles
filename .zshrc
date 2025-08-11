@@ -1,5 +1,6 @@
 eval "$(starship init zsh)"
 
+
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
 
@@ -115,8 +116,8 @@ zinit wait lucid light-mode for \
 bindkey "^P" up-line-or-search
 bindkey "^N" down-line-or-search
 
-bindkey '^[P' history-substring-search-up
-bindkey '^[N' history-substring-search-down
+bindkey '^P' history-substring-search-up
+bindkey '^N' history-substring-search-down
 bindkey "^R" history-incremental-search-backward
 
 set -o vi
@@ -126,15 +127,25 @@ HISTSIZE=1000
 SAVEHIST=1000
 setopt appendhistory
 
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_FIND_NO_DUPS
+setopt HIST_SAVE_NO_DUPS
+
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 
-export EDITOR="nvim"
 
 autoload -U compinit && compinit
 
 
+
 export NOTE_PATH="/mnt/data/notes"
+
+# Created by `pipx` on 2025-08-04 02:16:06
+export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:/home/notpc/.local/bin"

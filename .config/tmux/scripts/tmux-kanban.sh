@@ -30,10 +30,10 @@ path="$selected/kanban.md";
 mkdir -p $selected
 
 if [ ! -f $path ]; then
-    echo $path
     cp /home/notpc/.config/taskell/template.md $path
 fi
 
+    echo $path
 taskell $path 2> /home/notpc/.config/tmux/log.err
 
 
