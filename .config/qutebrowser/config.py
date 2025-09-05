@@ -182,7 +182,7 @@ config.bind(
 c.statusbar.show = "never"
 c.tabs.show = "never"
 
-config.set("colors.webpage.darkmode.enabled", True)
+config.set("colors.webpage.darkmode.enabled", False)
 
 # config.set("backend", "webkit")
 #
