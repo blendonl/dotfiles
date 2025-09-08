@@ -12,15 +12,44 @@
     (box :class "list-popup" :orientation "vertical" :space-evenly false :spacing 15
         (label :class "title" :halign "center" :text submap_name)
 
-        (box :class "list-container" :orientation "vertical" :spacing 8
-            (for shortcut in key_pairs
-                (box :orientation "horizontal" :space-evenly false
-                    (box :class "key-box" :width 30
-                        (label :class "key" :text "${shortcut.key}"))
-                    (label :class "separator" :text "→ ")
-                    (label :class "value" :text "${shortcut.value}"))))
+        (box :class "list-container" :orientation "horizontal" :spacing 20 :space-evenly true
+            (box :orientation "vertical" :spacing 3 :width 200
+                (for i in {arraylength(key_pairs) > 0 ? [0, 1, 2, 3] : []}
+                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
+                        (box :class "key-box" :width 50
+                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
+                        (box :class "separator-box" :width 20
+                            (label :class "separator" :text " → " :halign "center"))
+                        (box :class "value-box" :width 130
+                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
+            (box :orientation "vertical" :spacing 3 :width 200
+                (for i in {arraylength(key_pairs) > 4 ? [4, 5, 6, 7] : []}
+                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
+                        (box :class "key-box" :width 50
+                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
+                        (box :class "separator-box" :width 20
+                            (label :class "separator" :text " → " :halign "center"))
+                        (box :class "value-box" :width 130
+                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
+            (box :orientation "vertical" :spacing 3 :width 200
+                (for i in {arraylength(key_pairs) > 8 ? [8, 9, 10, 11] : []}
+                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
+                        (box :class "key-box" :width 50
+                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
+                        (box :class "separator-box" :width 20
+                            (label :class "separator" :text " → " :halign "center"))
+                        (box :class "value-box" :width 130
+                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
+            (box :orientation "vertical" :spacing 3 :width 200
+                (for i in {arraylength(key_pairs) > 12 ? [12, 13, 14, 15] : []}
+                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
+                        (box :class "key-box" :width 50
+                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
+                        (box :class "separator-box" :width 20
+                            (label :class "separator" :text " → " :halign "center"))
+                        (box :class "value-box" :width 130
+                            (label :class "value" :text "${key_pairs[i].value}" :halign "start"))))))
 
         (label :halign "center" :class "exit-keys" :text "Esc - Exit")
     )
 )
-

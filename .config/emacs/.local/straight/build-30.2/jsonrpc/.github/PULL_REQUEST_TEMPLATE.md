@@ -1,0 +1,1 @@
+/home/notpc/.config/emacs/.local/straight/repos/jsonrpc/.github/PULL_REQUEST_TEMPLATE.md

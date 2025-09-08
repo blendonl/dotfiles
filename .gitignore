@@ -4,3 +4,4 @@ ags.tmp
 ags.tmo
 
 .env
+.config/emacs/.local/
