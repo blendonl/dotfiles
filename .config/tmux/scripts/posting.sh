@@ -17,6 +17,19 @@ fi
 mkdir -p $selected
 
 
-tmux display-popup -t "$selected_name" -d "$selected_path" -xC -yC -w80% -h80% -E "EDITOR=nvim posting --collection $selected"
+
+POSTING_WINDOW="$(tmux list-windows | grep  posting | egrep -o '^[^:]+' )"
+
+
+if [ -z "${POSTING_WINDOW}" ]; then
+    tmux new-window -d -n posting -c "#{pane_current_path}" "EDITOR=nvim posting --collection $selected"
+
+    POSTING_WINDOW="$(tmux list-windows | grep  posting | egrep -o '^[^:]+' )"
+fi
+
+
+tmux select-window -t $POSTING_WINDOW 
+
+
 
 
