@@ -1,0 +1,1 @@
+/home/notpc/.config/emacs/.local/straight/repos/treesit-fold/treesit-fold-parsers.el

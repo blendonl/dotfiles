@@ -1,0 +1,1 @@
+/home/notpc/.config/emacs/.local/straight/repos/ultra-scroll/ultra-scroll.el

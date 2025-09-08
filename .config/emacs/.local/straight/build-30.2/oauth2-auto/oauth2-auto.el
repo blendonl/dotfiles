@@ -1,0 +1,1 @@
+/home/notpc/.config/emacs/.local/straight/repos/emacs-oauth2-auto/oauth2-auto.el

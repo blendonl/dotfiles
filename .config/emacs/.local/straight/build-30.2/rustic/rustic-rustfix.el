@@ -1,0 +1,1 @@
+/home/notpc/.config/emacs/.local/straight/repos/rustic/rustic-rustfix.el
