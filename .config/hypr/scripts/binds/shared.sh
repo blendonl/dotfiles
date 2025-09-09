@@ -8,10 +8,10 @@ show_eww_indicator() {
     
     if eww active-windows | grep -q "${EWW_WIN_NAME}"; then
         eww close "${EWW_WIN_NAME}"
-    else
-        ACTIVE_MONITOR_ID=$(hyprctl monitors -j | jq '.[] | select(.focused == true) | .id')
-        eww update key_pairs="${key_pairs}" submap_name="${submap_name}"
-        eww open "${EWW_WIN_NAME}" --screen "${ACTIVE_MONITOR_ID}"
     fi
+
+    ACTIVE_MONITOR_ID=$(hyprctl monitors -j | jq '.[] | select(.focused == true) | .id')
+    eww update key_pairs="${key_pairs}" submap_name="${submap_name}"
+    eww open "${EWW_WIN_NAME}" --screen "${ACTIVE_MONITOR_ID}"
 }
 
