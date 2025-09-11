@@ -20,16 +20,15 @@ is_allowed() {
     return 1
 }
 
-hyprctl keyword submap $SUBMAP
 
 for key in "${ALL_KEYS[@]}"; do
     if ! is_allowed "$key"; then
-        hyprctl keyword bind ",${key},pass," 
+        echo "bind = , ${key}, pass" 
     fi
 done
 
 
-hyprctl dispatch submap "$SUBMAP"
+
 
 
 
