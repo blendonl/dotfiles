@@ -24,8 +24,10 @@ POSTING_WINDOW="$(tmux list-windows | grep  posting | egrep -o '^[^:]+' )"
 if [ -z "${POSTING_WINDOW}" ]; then
     tmux new-window -d -n posting -c "#{pane_current_path}" "EDITOR=nvim posting --collection $selected"
 
+
     POSTING_WINDOW="$(tmux list-windows | grep  posting | egrep -o '^[^:]+' )"
 fi
+
 
 
 tmux select-window -t $POSTING_WINDOW 
