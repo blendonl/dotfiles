@@ -12,7 +12,7 @@ PANE_COUNT="$(echo "${LIST_PANES}" | wc -l | bc)"
 
 if [ "${PANE_COUNT}" -gt 1 ] && [ -z "${DOCKER_WINDOW}" ]; then
     
-    tmux break-pane -s $ACTIVE_WINDOW.1 -d -n run
+    tmux break-pane -s $ACTIVE_WINDOW.1 -d -n docker
 
     exit 0
 fi

@@ -14,6 +14,8 @@ if [ "${PANE_COUNT}" -gt 1 ] && [ -z "${RUN_WINDOW}" ]; then
     
     tmux break-pane -s $ACTIVE_WINDOW.1 -d -n run
 
+    exit 0
+
 fi
 
 if [ -z "${RUN_WINDOW}" ]; then
