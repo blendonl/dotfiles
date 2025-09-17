@@ -1,0 +1,9 @@
+[
+ {"key":"escape","value":"Exit submap"},
+ {"key":"F","value":"Fullscreen"},
+ {"key":"D","value":"Disable fullscreen"},
+ {"key":"I","value":"Fullscreen on inactive"},
+ {"key":"T","value":"Toggle floating"},
+ {"key":"P","value":"Pin window"},
+ {"key":"Space","value":"Toggle split"}
+]

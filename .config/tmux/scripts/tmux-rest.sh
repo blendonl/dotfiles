@@ -17,21 +17,16 @@ fi
 mkdir -p $selected
 
 
-
 REST_WINDOW="$(tmux list-windows | grep  rest | egrep -o '^[^:]+' )"
 
 
+
 if [ -z "${REST_WINDOW}" ]; then
-    tmux new-window -d -n rest -c $selected nvim
+    tmux new-window -d -n rest -c $selected nvim index.http
 
-
-    REST_WINDOW="$(TMUX list-windows | grep  rest | egrep -o '^[^:]+' )"
+    REST_WINDOW="$(tmux list-windows | grep  rest | egrep -o '^[^:]+' )"
 fi
 
 
-
 tmux select-window -t $REST_WINDOW 
-
-
-
 

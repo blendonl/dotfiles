@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-WINDOW_LIST=$(tmux list-windows)
 DOCKER_WINDOW="$(tmux list-windows | grep  docker | egrep -o '^[^:]+' )"
 ACTIVE_WINDOW="$(tmux list-windows | grep  "*" | egrep -o '^[^:]+' )"
 
 LIST_PANES="$(tmux list-panes -F '#F' )"
 PANE_COUNT="$(echo "${LIST_PANES}" | wc -l | bc)"
+
 
 
 
@@ -23,7 +23,8 @@ if [ -z "${DOCKER_WINDOW}" ]; then
     DOCKER_WINDOW="$(tmux list-windows | grep  docker | egrep -o '^[^:]+' )"
 fi
 
-tmux join-pane -h -l 25% -t $ACTIVE_WINDOW -s $DOCKER_WINDOW
+
+tmux join-pane -h -l 25% -t $ACTIVE_WINDOW -s $DOCKER_WINDOW.0
 
 
 

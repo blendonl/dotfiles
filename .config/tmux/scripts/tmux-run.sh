@@ -24,7 +24,7 @@ if [ -z "${RUN_WINDOW}" ]; then
     RUN_WINDOW="$(tmux list-windows | grep  run | egrep -o '^[^:]+' )"
 fi
 
-tmux join-pane -h -l 25% -t $ACTIVE_WINDOW -s $RUN_WINDOW
+tmux join-pane -h -l 25% -t $ACTIVE_WINDOW -s $RUN_WINDOW.0
 
 
 
