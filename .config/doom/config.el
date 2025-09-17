@@ -21,8 +21,8 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
-(setq doom-font (font-spec :family "Fira Code" :size 16 :weight 'semi-light)
-      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 16))
+(setq doom-font (font-spec :family "FiraCode Nerd Font" :size 16 :weight 'semi-light)
+      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font" :size 16))
 ;;
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -74,3 +74,7 @@
 ;;
 ;; You can also try 'gd' (or 'C-c c d') to jump to their definition and see how
 ;; they are implemented.
+(setq catppuccin-flavor 'frappe) ;; or 'latte, 'macchiato, or 'mocha
+(catppuccin-set-color 'base "#000000") ;; change base to #000000 for the currently active flavor
+(catppuccin-set-color 'crust "#222222" 'frappe) ;; change crust to #222222 for frappe
+(catppuccin-reload)

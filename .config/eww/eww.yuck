@@ -1,55 +1,34 @@
+
+(defvar monitor "0")
 (defvar submap_name "")
-(defvar key_pairs '[
-  {"key" "-", "value" "-"}
-]')
+(defvar key_pairs '[{"key" "-", "value" "-"}]')
+
+(defwidget key-pair [pair index]
+  (box :orientation "horizontal" :space-evenly false :width 200
+    (box :class "key-box" :width 50
+      (label :class "key" :text {index < arraylength(key_pairs) ? "${pair.key}" : ""} :halign "start"))
+    (box :class "separator-box" :width 20
+      (label :class "separator" :text {index < arraylength(key_pairs) ? " → " : ""} :halign "center"))
+    (box :class "value-box" :width 130
+      (label :class "value" :text {index < arraylength(key_pairs) ? "${pair.value}" : ""} :halign "start"))))
+
+(defwidget key-column [start end]
+  (box :orientation "vertical" :spacing 3 :width 200
+    (for i in {[start, start+1, start+2, start+3]}
+      (key-pair :pair "${key_pairs[i]}" :index i))))
 
 (defwindow list_indicator
-    :monitor 0 
-    :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
-    :stacking "overlay"
-    :focusable false
-    :namespace "list-hints"
-    (box :class "list-popup" :orientation "vertical" :space-evenly false :spacing 15
-        (label :class "title" :halign "center" :text submap_name)
-
-        (box :class "list-container" :orientation "horizontal" :spacing 20 :space-evenly true
-            (box :orientation "vertical" :spacing 3 :width 200
-                (for i in {arraylength(key_pairs) > 0 ? [0, 1, 2, 3] : []}
-                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
-                        (box :class "key-box" :width 50
-                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
-                        (box :class "separator-box" :width 20
-                            (label :class "separator" :text " → " :halign "center"))
-                        (box :class "value-box" :width 130
-                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
-            (box :orientation "vertical" :spacing 3 :width 200
-                (for i in {arraylength(key_pairs) > 4 ? [4, 5, 6, 7] : []}
-                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
-                        (box :class "key-box" :width 50
-                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
-                        (box :class "separator-box" :width 20
-                            (label :class "separator" :text " → " :halign "center"))
-                        (box :class "value-box" :width 130
-                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
-            (box :orientation "vertical" :spacing 3 :width 200
-                (for i in {arraylength(key_pairs) > 8 ? [8, 9, 10, 11] : []}
-                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
-                        (box :class "key-box" :width 50
-                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
-                        (box :class "separator-box" :width 20
-                            (label :class "separator" :text " → " :halign "center"))
-                        (box :class "value-box" :width 130
-                            (label :class "value" :text "${key_pairs[i].value}" :halign "start")))))
-            (box :orientation "vertical" :spacing 3 :width 200
-                (for i in {arraylength(key_pairs) > 12 ? [12, 13, 14, 15] : []}
-                    (box :orientation "horizontal" :space-evenly false :visible {i < arraylength(key_pairs)} :width 200
-                        (box :class "key-box" :width 50
-                            (label :class "key" :text "${key_pairs[i].key}" :halign "center"))
-                        (box :class "separator-box" :width 20
-                            (label :class "separator" :text " → " :halign "center"))
-                        (box :class "value-box" :width 130
-                            (label :class "value" :text "${key_pairs[i].value}" :halign "start"))))))
-
-        (label :halign "center" :class "exit-keys" :text "Esc - Exit")
-    )
-)
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "20px" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false :spacing 10
+    (box :orientation "vertical" :margin "0 20px"
+      (label :class "title" :halign "center" :text submap_name)
+      (box :orientation "horizontal" :spacing 20 :space-evenly true
+        (key-column :start 0 :end 4)
+        (key-column :start 4 :end 8)
+        (key-column :start 8 :end 12)
+        (key-column :start 12 :end 16))
+      (label :halign "center" :class "exit-keys" :text "Esc - Exit"))))
