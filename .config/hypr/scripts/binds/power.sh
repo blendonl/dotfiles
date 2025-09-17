@@ -1,32 +1,18 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/binds/shared.sh
+source ~/.config/hypr/scripts/submap.sh power
+
+add_bind "escape" "exec, $submap reset" "Exit submap"
+add_bind "Return" "exec, hyprctl dispatch exit; exec, $exit_submap" "Exit Hyprland"
+add_bind "r" "exec, hyprctl dispatch reboot; exec, $exit_submap" "Reboot"
+add_bind "s" "exec      , hyprctl dispatch suspend; exec, $exit_submap" "Suspend"
+add_bind "l" "exec, hyprlock; exec, $exit_submap"   "Lock screen"
+add_bind "p" "exec, hyprctl dispatch poweroff; exec, $exit_submap" "Power off"          
+
+all_allowed
+
+echo "$TEXT" > ~/.config/hypr/hyprland/keybinds/$SUBMAP.conf
+
+source ~/.config/hypr/scripts/source_submap.sh
 
 
-    bind = , Return, exec, hyprctl dispatch exit
-    bind = , Return, exec, $exit_submap
-
-    bind = , R, exec  , hyprctl dispatch reboot
-    bind = , R, exec, $exit_submap
-
-    bind = , S, exec  , hyprctl dispatch suspend
-    bind = , S, exec, $exit_submap
-
-    bind = , L, exec  , hyprlock
-    bind = , L, exec, $exit_submap
-
-    bind = , P, exec  , hyprctl dispatch poweroff
-    bind = , P, exec, $exit_submap
-
-    bind = , ESCAPE, exec, $exit_submap
-
-submap_name="Exec" 
-key_pairs='[
-    {"key":"Return","value":"Exit"}
-    {"key":"l","value":"Log Out"},
-    {"key":"p","value":"Power Off"},
-    {"key":"r","value":"Reboot"},
-    {"key":"s","value":"Suspend"},
-]'
-
-show_eww_indicator "$key_pairs" "$submap_name" 

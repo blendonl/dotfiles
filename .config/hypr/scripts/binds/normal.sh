@@ -1,21 +1,26 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/binds/shared.sh
-submap_name="Exec" 
-key_pairs='[
-    {"key":"i","value":"Notifications"},
-    {"key":"m","value":"Mouse"},
-    {"key":"n","value":"Notes"},
-    {"key":"p","value":"Power"},
-    {"key":"r","value":"Record"},
-    {"key":"return","value":"Alacritty"},
-    {"key":"s","value":"Run"},
-    {"key":"shift+c","value":"Kill"},
-    {"key":"shift+return","value":"Toggle terminal scratchpad"},
-    {"key":"shift+tab","value":"Swap monitor"},
-    {"key":"tab","value":"Focus monitor"},
-    {"key":"v","value":"Paste"},
-    {"key":"w","value":"Window"}
-]'
+source ~/.config/hypr/scripts/submap.sh normal bindr=super_l,super_l
 
-show_eww_indicator "$key_pairs" "$submap_name" 
+
+add_bind "escape" "exec, $submap reset" "Exit submap"
+add_bind "return" "exec, alacritty" "Open terminal"
+add_bind "s" "exec, sherlock" "Search"
+add_bind "v" "exec, cliphist list | wofi -dmenu | cliphist decode | wl-copy" "Paste clipboard"
+add_bind "m" "submap, mouse" "Mouse"
+add_bind "n" "submap, notes" "Notes"
+add_bind "i" "submap, notification" "Notifications"
+add_bind "p" "submap, power" "Power"
+add_bind "r" "submap, record" "Record"
+add_bind "w" "submap, window" "Window management"      
+
+
+all_allowed
+
+echo "$TEXT" > ~/.config/hypr/hyprland/keybinds/$SUBMAP.conf
+
+source ~/.config/hypr/scripts/source_submap.sh
+
+
+
+

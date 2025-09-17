@@ -1,13 +1,18 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/binds/shared.sh
+
+source ~/.config/hypr/scripts/submap.sh record
 
 
-submap_name="Exec" 
-key_pairs='[
-    {"key":"p","value":"Picker"},
-    {"key":"s","value":"Screen Shot"},
-    {"key":"v","value":"Screen Shot"},
-]'
+add_bind "escape" "exec, $submap reset" "Exit submap"
+add_bind "v" "exec, hyprshot -m region --clipboard-only; exec, $submap reset" "Screenshot region to clipboard"
+add_bind "s" "exec, grim -g \"\$(slurp -d)\" - | wl-copy; exec, $submap reset" "Screenshot region to clipboard"
+add_bind "p" "exec, hyprpicker -a; exec, $submap reset" "Screenshot with picker"    
 
-show_eww_indicator "$key_pairs" "$submap_name" 
+all_allowed
+
+echo "$TEXT" > ~/.config/hypr/hyprland/keybinds/$SUBMAP.conf
+
+source ~/.config/hypr/scripts/source_submap.sh
+
+
