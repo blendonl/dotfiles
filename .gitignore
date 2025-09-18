@@ -5,3 +5,38 @@ ags.tmo
 
 .env
 .config/emacs/.local/
+
+.config/Vieb/blob_storage
+.config/Vieb/blocklists
+.config/Vieb/Cache
+.config/Vieb/Code\ Cache
+.config/Vieb/commandhist
+.config/Vieb/Cookies
+.config/Vieb/Cookies-journal
+.config/Vieb/Crashpad
+.config/Vieb/DawnGraphiteCache
+.config/Vieb/DawnWebGPUCache
+.config/Vieb/Dictionaries
+.config/Vieb/DIPS
+.config/Vieb/DIPS-wal
+.config/Vieb/explorehist
+.config/Vieb/favicons
+.config/Vieb/GPUCache
+.config/Vieb/hist
+.config/Vieb/Local\ Storage
+.config/Vieb/Network\ Persistent\ State
+.config/Vieb/Partitions
+.config/Vieb/Preferences
+.config/Vieb/quickmarks
+.config/Vieb/Session\ Storage
+.config/Vieb/SingletonCookie
+.config/Vieb/SingletonLock
+.config/Vieb/SingletonSocket
+.config/Vieb/Shared\ Dictionary
+.config/Vieb/SharedStorage
+.config/Vieb/tabs
+.config/Vieb/TransportSecurity
+.config/Vieb/Trust\ Tokens
+.config/Vieb/Trust\ Tokens-journal
+.config/Vieb/windowstate
+

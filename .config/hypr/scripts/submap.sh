@@ -76,6 +76,8 @@ add_key_pair() {
         key_pairs+=$(echo -e "\n {\"key\":\"$key\",\"value\":\"$description\"}\n]")
     fi
 
+    mkdir -p ~/.config/eww/indicators
+
     echo -e "$key_pairs" > ~/.config/eww/indicators/$SUBMAP.json
 
 }

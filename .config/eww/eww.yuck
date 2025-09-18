@@ -4,31 +4,30 @@
 (defvar key_pairs '[{"key" "-", "value" "-"}]')
 
 (defwidget key-pair [pair index]
-  (box :orientation "horizontal" :space-evenly false :width 200
-    (box :class "key-box" :width 50
+  (box :class "item" :orientation "horizontal" :space-evenly false 
+    (box :class "key-box" :width 20
       (label :class "key" :text {index < arraylength(key_pairs) ? "${pair.key}" : ""} :halign "start"))
-    (box :class "separator-box" :width 20
+    (box :class "separator-box" :width 50
       (label :class "separator" :text {index < arraylength(key_pairs) ? " → " : ""} :halign "center"))
     (box :class "value-box" :width 130
       (label :class "value" :text {index < arraylength(key_pairs) ? "${pair.value}" : ""} :halign "start"))))
 
 (defwidget key-column [start end]
-  (box :orientation "vertical" :spacing 3 :width 200
-    (for i in {[start, start+1, start+2, start+3]}
+  (box :orientation "vertical" :width 200
+    (for i in {[start, start+1, start+2, start+3, start+4]}
       (key-pair :pair "${key_pairs[i]}" :index i))))
 
 (defwindow list_indicator
   :monitor monitor
-  :geometry (geometry :x "0%" :y "20px" :width "100%" :anchor "bottom center")
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
   :stacking "overlay"
   :focusable false
   :namespace "list-hints"
-  (box :class "list-popup" :orientation "vertical" :space-evenly false :spacing 10
-    (box :orientation "vertical" :margin "0 20px"
-      (label :class "title" :halign "center" :text submap_name)
-      (box :orientation "horizontal" :spacing 20 :space-evenly true
-        (key-column :start 0 :end 4)
-        (key-column :start 4 :end 8)
-        (key-column :start 8 :end 12)
-        (key-column :start 12 :end 16))
+  (box :class "list-popup" :orientation "vertical" :space-evenly false 
+  (box :class "list" :orientation "vertical" :space-evenly false
+      (box  :orientation "horizontal" :space-evenly false
+        (key-column :class "item" :start 0 :end 5)
+        (key-column :class "item" :start 5 :end 10)
+        (key-column :class "item" :start 10 :end 15)
+        (key-column :class "item" :start 15 :end 20))
       (label :halign "center" :class "exit-keys" :text "Esc - Exit"))))
