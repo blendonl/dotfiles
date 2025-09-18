@@ -1,4 +1,29 @@
 * {
     background-color: #000000; 
     color: #ffffff;
+    font-size: 1.3rem;
+    font-family: 'Fira Code', monospace;
+    margin: 0;
+    padding: 0;
+}
+
+.list-popup {
+    background-color: #000000; 
+    color: #ffffff;
+    padding: 0; 
+    margin: 0;
+}
+
+.list {
+    margin: 0;
+    padding: 20 150;
+}
+
+.item {
+    color: #000000;
+    margin: 0 40;
+}
+
+.exit-keys {
+    margin: 0;
 }

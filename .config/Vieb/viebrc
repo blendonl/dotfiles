@@ -1,0 +1,228 @@
+" Options
+set adblocker=update
+set adblockernotifications=all
+set cache=clearonquit
+set noclearcookiesonquit
+set nocleardownloadsoncompleted
+set nocleardownloadsonquit
+set clearhistoryinterval=none
+set noclearlocalstorageonquit
+set noclosablepinnedtabs
+set commandhist=persistuseronly
+set containerkeeponreopen
+set containernewtab=s:usecurrent
+set containershowname=automatic
+set containersplitpage=s:usecurrent
+set containerstartuppage=main
+set countlimit=100
+set nodarkreader
+set darkreaderbg=#181a1b
+set darkreaderbrightness=100
+set darkreadercontrast=100
+set darkreaderfg=#e8e6e3
+set darkreadergrayscale=0
+set darkreadermode=dark
+set darkreadersepia=0
+set darkreadertextstroke=0
+set devtoolsposition=window
+set dialogalert=notifyblock
+set dialogconfirm=notifyallow
+set dialogprompt=notifyblock
+set downloadmethod=confirm
+set downloadpath=
+set encodeurlcopy=nospaces
+set encodeurlext=nospaces
+set explorehist=persist
+set externalcommand=
+set favicons=session
+set followchars=numbers
+set followfallbackaction=filter
+set followlabelposition=outsiderighttop
+set follownewtabswitch
+set guifontsize=16
+set guifullscreennavbar=oninput
+set guifullscreentabbar=onupdate
+set guihidetimeout=2000
+set guinavbar=onupdate
+set guiscrollbar=always
+set guitabbar=onupdate
+set historyperpage=100
+set ignorecase
+set incsearch
+set inputfocusalignment=rememberend
+set insertleavetimeout=0
+set keeprecentlyclosed
+set lang=en
+set loadingindicator=spinner
+set mapsuggest=9000000000000000
+set mapsuggestposition=bottomleft
+set markposition=newtab
+set markpositionshifted=default
+set maxmapdepth=10
+set menupage=elementasneeded
+set menusuggest=both
+set menuvieb=both
+set mintabwidth=28
+set mouse=all
+set mousedisabledbehavior=nothing
+set nomousefocus
+set mousenewtabswitch
+set mousevisualmode=onswitch
+set nativenotification=always
+set nativetheme=dark
+set newtaburl=
+set notificationduration=6000
+set notificationforpermissions=silent
+set notificationforsystemcommands=errors
+set notificationlimitsmall=3
+set notificationposition=bottomright
+set pdfbehavior=download
+set permissioncamera=ask
+set permissioncertificateerror=block
+set permissionclipboardread=block
+set permissionclipboardwrite=allow
+set permissionclosepage=allow
+set permissiondisplaycapture=ask
+set permissionfullscreen=allow
+set permissiongeolocation=block
+set permissionhid=block
+set permissionidledetection=block
+set permissionmediadevices=allow
+set permissionmicrophone=ask
+set permissionmidi=block
+set permissionmidisysex=block
+set permissionnotifications=block
+set permissionopenexternal=ask
+set permissionpersistentstorage=allow
+set permissionpointerlock=block
+set permissionscreenwakelock=block
+set permissionsensors=block
+set permissionserial=block
+set permissionunknown=block
+set permissionusb=block
+set permissionwindowmanagement=block
+set pointerposlocalid=domain
+set pointerpostype=casing
+set noquitonlasttabclose
+set redirecttohttp
+set noreloadtaboncrash
+set replacespecial=special
+set replacestartup=never
+set requesttimeout=20000
+set restoretabs=pinned
+set scrollposlocalid=domain
+set scrollpostype=casing
+set searchemptyscope=global
+set searchpointeralignment=left
+set searchscope=global
+set shell=
+set showcmd
+set smartcase
+set spell
+set nosplitbelow
+set nosplitright
+set nosponsorblock
+set suggestbouncedelay=100
+set suggestcommands=9000000000000000
+set suggesttopsites=10
+set suspendbackgroundtab
+set suspendonrestore=regular
+set suspendtimeout=0
+set tabclosefocus=right
+set tabcycle
+set tabnewposition=right
+set tabopenmuted=never
+set taboverflow=scroll
+set tabreopenmuted=remember
+set tabreopenposition=right
+set timeout
+set timeoutlen=2000
+set translateapi=auto
+set translatekey=
+set translatelang=en-us
+set translateurl=https://api-free.deepl.com/v2/
+set useragent=
+set useragent+=%firefox
+set nouserscript
+set nouserstyle
+set vimcommand="neovide"
+set windowfullscreen=restore
+set windowmaximize=restore
+set windowposition=restore
+set windowsize=restore
+set windowtitle="%title - %app"
+
+" Mappings
+cmap <C-k> <S-End><BS>
+cmap <C-a> <Home>
+cmap <C-e> <editWithVim>
+cmap <A-f> <C-Right>
+cmap <A-b> <C-Left>
+cmap <A-d> <C-S-Right><BS>
+cmap <A-BS> <C-S-Left><BS>
+cmap <C-?> <Del>
+cmap <C-h> <BS>
+cmap <C-b> <Left>
+cmap <C-f> <Right>
+cmap <C-u> <S-Home><BS>
+cmap <C-w> <C-S-Left><BS>
+emap <C-S-Tab> <prevSuggestionSection>
+emap <C-Tab> <nextSuggestionSection>
+emap <C-e> <editWithVim>
+imap <C-e> <editWithVim>
+nmap <C-p> <:pin>
+nmap = <zoomReset>
+nunmap [
+nunmap ]
+nmap gt <toCommandMode>buffer<Space>
+nmap gU <openNewTabWithCurrentUrl><CR><toParentUrl>
+nmap O <:tabnew><toExploreMode>
+nunmap p
+nunmap {
+nunmap }
+nmap <C-S-PageDown> <moveTabBackward>
+nmap <C-S-PageUp> <moveTabForward>
+nmap <C-Tab> <:buffer #>
+nmap Sh <:history>
+nmap Ss <:help>
+nmap <C-A-p> <:print>
+nmap <C-W> <:quit>
+nmap ZQ <:quit>
+nmap gd <:write>
+nmap [[ <previousPage>
+nmap ]] <nextPage>
+nmap {{ <previousPageNewTab>
+nmap }} <nextPageNewTab>
+nmap g0 <:b 0>
+nmap g^ <:b -1>
+nmap g$ <:b -1>
+nmap <C-^> <:buffer #>
+nmap ga <:tabnew>
+nmap gC <openNewTabWithCurrentUrl><CR>
+nmap gJ <moveTabForward>
+nmap gK <moveTabBackward>
+nmap co <:lclose><:rclose>
+nmap <C-s> <stopLoadingPage>
+nmap o <toExploreMode><BS>
+nmap go <toExploreMode><End>
+nmap pp <openFromClipboard>
+nmap Pp <:tabnew><openFromClipboard>
+nmap sk <toCommandMode>map<Space>
+nmap ss <toCommandMode>set<Space>
+nmap wi <:devtools>
+pmap e <p.moveFastRight>
+pmap H <p.scrollLeft>
+pmap L <p.scrollRight>
+pmap c <toNormalMode>
+pmap <Space> <p.startVisualSelect>
+smap <C-e> <editWithVim>
+vmap v <p.start>
+vmap <CR> <p.copyText>
+vmap <C-Space> <toNormalMode><p.start><p.startVisualSelect>
+nmap gb <toCommandMode>buffer<Space>
+
+" Commands
+colorscheme catppuccin
+
+" Viebrc generated by Vieb
+" vim: ft=vim
