@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/binds/shared.sh
+source ~/.config/hypr/scripts/submaps_setup/shared.sh
 
 key_pairs=$(cat /home/notpc/.config/eww/indicators/$1.json)
 submap_name="$1"

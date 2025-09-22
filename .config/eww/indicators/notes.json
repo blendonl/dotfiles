@@ -4,5 +4,6 @@
  {"key":"k","value":"Mkanban"},
  {"key":"s","value":"notes"},
  {"key":"g","value":"notes"},
- {"key":"d","value":"notes"}
+ {"key":"d","value":"notes"},
+ {"key":"c","value":"Current Task"}
 ]
