@@ -13,7 +13,7 @@
 (setq file-name-history '("~/dotfiles/.config/doom/config.el" "~/work/foragr-be/" "~/org/test.org" "~/dotfiles/.config/doom/config.el" "~/dotfiles/.config/doom/init.el" "~/.config/doom/config.el" "~/.config/doom/packages.el" "~/.config/doom/init.el" "~/.config/doom/config.el"))
 (setq evil-jumps-history '((3462 "/home/notpc/dotfiles/.config/doom/config.el") (3356 #1="/home/notpc/dotfiles/.config/doom/config.el") (921 #1#) (2200 #1#) (266 "/home/notpc/work/foragr-be/src/modules/user/user.module.ts") (533 "/home/notpc/work/foragr-be/.eslintrc.js") (77 #2="/home/notpc/org/test.org") (1 #2#) (44 #2#) (3368 #1#) (6944 "/home/notpc/dotfiles/.config/doom/init.el") (2151 #3="/home/notpc/.config/doom/packages.el") (2131 #3#) (9774 "/home/notpc/.config/doom/init.el") (938 "/home/notpc/.config/doom/config.el")))
 (setq corfu-history 'nil)
-(setq kill-ring '("(catppuccin-reload)
+(setq kill-ring '("" "(catppuccin-reload)
 " ";; 
 " " " ";;" "(setq catppuccin-flavor 'frappe) ;; or 'latte, 'macchiato, or 'mocha
 (catppuccin-reload)" "(catppuccin-set-color 'base \"#000000\") ;; change base to #000000 for the currently active flavor

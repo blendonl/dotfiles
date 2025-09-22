@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/binds/shared.sh
+source ~/.config/hypr/scripts/submaps_setup/shared.sh
 
 
 SUBMAP="$1"

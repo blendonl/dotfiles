@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/.config/hypr/scripts/submap.sh normal bindr=super_l,super_l
+source ~/.config/hypr/scripts/submaps_setup/submap.sh normal bindr=super_l,super_l
 
 
 add_bind "escape" "exec, $submap reset" "Exit submap"
@@ -14,12 +14,6 @@ add_bind "p" "submap, power" "Power"
 add_bind "r" "submap, record" "Record"
 add_bind "w" "submap, window" "Window management"      
 
-
-all_allowed
-
-echo "$TEXT" > ~/.config/hypr/hyprland/keybinds/$SUBMAP.conf
-
-source ~/.config/hypr/scripts/source_submap.sh
 
 
 
