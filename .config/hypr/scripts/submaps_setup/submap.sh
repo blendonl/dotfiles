@@ -15,7 +15,7 @@ ALL_USED_KEYS=()
 key_pairs=$'[\n]'
 show_indicator="~/.config/hypr/scripts/eww/indicator.sh"
 indicators="~/.config/eww/indicators/$SUBMAP.json"
-exit_submap="hyprctl dispatch submap reset && eww close list_indicator"
+exit_submap="eww close list_indicator"
 
 
 is_allowed() {
@@ -48,8 +48,9 @@ add_bind() {
     if [[ ! $function == *"submap"* ]] then
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
         TEXT+=$(echo -e "\nbind=, $key, $function\n")
-    elif [[ $function == *"submap, reset"* ]] then
-        TEXT+=$(echo -e "\n\nbind=, $key, $function\n")
+    elif [[ $key == *"escape"* ]] then
+        TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
+        TEXT+=$(echo -e "\n\nbind=, $key, submap, reset\n")
     else 
         indicator_submap=$(echo $function | sed 's/submap, //g')
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $show_indicator $indicator_submap\n")
@@ -61,7 +62,11 @@ add_bind() {
 
     ALL_USED_KEYS+=("$key")
 
-    add_key_pair "$key" "$description"
+    if  [[ !  $key == "escape" ]] then
+        add_key_pair "$key" "$description"
+    fi
+
+
 }
 
 add_key_pair() {
@@ -75,6 +80,7 @@ add_key_pair() {
     else
         key_pairs+=$(echo -e "\n {\"key\":\"$key\",\"value\":\"$description\"}\n]")
     fi
+
 
     mkdir -p ~/.config/eww/indicators
 

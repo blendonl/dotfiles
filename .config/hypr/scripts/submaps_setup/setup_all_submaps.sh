@@ -10,6 +10,8 @@ for file in "${files[@]}"; do
 
     all_allowed
 
+    add_bind "escape" "exec, submap reset" "Exit submap"
+
     echo "$TEXT" > ~/.config/hypr/hyprland/keybinds/$SUBMAP.conf
 
 done

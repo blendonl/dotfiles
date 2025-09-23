@@ -3,10 +3,8 @@
 source ~/.config/hypr/scripts/submaps_setup/submap.sh normal bindr=super_l,super_l
 
 
-add_bind "escape" "exec, $submap reset" "Exit submap"
 add_bind "return" "exec, alacritty" "Open terminal"
-add_bind "s" "exec, sherlock" "Search"
-add_bind "v" "exec, cliphist list | wofi -dmenu | cliphist decode | wl-copy" "Paste clipboard"
+add_bind "s" "submap, search" "Search"
 add_bind "m" "submap, mouse" "Mouse"
 add_bind "n" "submap, notes" "Notes"
 add_bind "i" "submap, notification" "Notifications"
