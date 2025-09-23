@@ -1,5 +1,4 @@
 [
- {"key":"escape","value":"Exit submap"},
  {"key":"a","value":"Close all notifications"},
  {"key":"c","value":"Close current notification"},
  {"key":"h","value":"Show last notification"},

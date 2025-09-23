@@ -1,5 +1,4 @@
 [
- {"key":"escape","value":"Exit submap"},
  {"key":"Return","value":"Exit Hyprland"},
  {"key":"r","value":"Reboot"},
  {"key":"s","value":"Suspend"},

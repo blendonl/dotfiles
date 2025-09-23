@@ -1,5 +1,5 @@
 [
- {"key":"escape","value":"Exit submap"},
- {"key":"a","value":"    Search"},
- {"key":"v","value":"Paste clipboard"}
+ {"key":"v","value":"Screenshot region to clipboard"},
+ {"key":"s","value":"Screenshot region to clipboard"},
+ {"key":"p","value":"Screenshot with picker"}
 ]
