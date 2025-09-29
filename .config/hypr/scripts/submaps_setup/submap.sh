@@ -48,6 +48,7 @@ add_bind() {
     if [[ ! $function == *"submap"* ]] then
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
         TEXT+=$(echo -e "\nbind=, $key, $function\n")
+        TEXT+=$(echo -e "\n\nbind=, $key, submap, reset\n")
     elif [[ $key == *"escape"* ]] then
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
         TEXT+=$(echo -e "\n\nbind=, $key, submap, reset\n")
