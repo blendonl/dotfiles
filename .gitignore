@@ -39,4 +39,4 @@ ags.tmo
 .config/Vieb/Trust\ Tokens
 .config/Vieb/Trust\ Tokens-journal
 .config/Vieb/windowstate
-
+.config/tmux/log.err
