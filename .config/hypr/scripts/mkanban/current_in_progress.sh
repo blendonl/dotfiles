@@ -29,7 +29,9 @@ else
 fi
 
 
-output=$(EDITOR=neovide MKANBAN_PATH=/home/notpc/.mkanban/boards mkanban --show-current-task --board $selected_name --column "in-progress")
-if [[ -n "$output" ]]; then
-    notify-send "Current In-Progress Task" "$output"
-fi 
+EDITOR=neovide mkanban --show-current-task --board $selected_name --column "in-progress" &> /dev/null &
+
+
+
+# ./$HOME/.config/hypr/scripts/window/reserved-space.sh
+
