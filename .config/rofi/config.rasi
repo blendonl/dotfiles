@@ -95,6 +95,8 @@ configuration {
 /*	  directory: "/home";*/
       directories-first: true;
       sorting-method:    "name";
+      show-preview: true;
+      preview-command: "bat --color=always --style=numbers {file}";
     }
 
 	/*---------- Other settings ----------*/
