@@ -1,8 +1,6 @@
 [
- {"key":"t","value":"New Task"},
+ {"key":"n","value":"New Task"},
  {"key":"k","value":"Mkanban"},
- {"key":"c","value":"Current Task"},
- {"key":"s","value":"notes"},
- {"key":"g","value":"notes"},
- {"key":"d","value":"notes"}
+ {"key":"t","value":"Current Task"},
+ {"key":"c","value":"Checkout to Task"}
 ]
