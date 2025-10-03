@@ -1,1 +1,0 @@
-/home/notpc/.config/emacs/.local/straight/repos/emacs-aio/aio.el

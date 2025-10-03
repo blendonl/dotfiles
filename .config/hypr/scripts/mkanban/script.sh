@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 
-ghostty --title="mkanban" --command="mkanban"
+kitty --app-id=mkanban --title="mkanban" -e "mkanban"
 
 
 
