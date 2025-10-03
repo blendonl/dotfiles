@@ -1,1 +1,0 @@
-/home/notpc/.config/emacs/.local/straight/repos/bind-key/bind-key.el
