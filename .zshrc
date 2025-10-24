@@ -149,4 +149,6 @@ export NOTE_PATH="/mnt/data/notes"
 
 export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:/home/notpc/.local/bin"
 export ANDROID_HOME=$HOME/Android/Sdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
+export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
