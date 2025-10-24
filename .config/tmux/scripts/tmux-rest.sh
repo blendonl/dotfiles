@@ -4,15 +4,6 @@ selected_name=$(tmux display-message -p '#S')
 selected_path=$(tmux display-message -p '#{pane_current_path}')
 
 
-if [[ "$selected_path" == *"work"* ]]; then
-    selected="$REST_DATA/collection/work/$selected_name"
-elif [[ "$selected_path" == *"personal"* ]]; then
-    selected="$REST_DATA/collection/personal/$selected_name"
-elif [[ "$selected_name" =~ ^[0-9]+$ ]]; then
-    selected="$REST_DATA/collection/general/"
-else 
-    selected="$REST_DATA/collection/general/$selected_name"
-fi
 
 mkdir -p $selected
 

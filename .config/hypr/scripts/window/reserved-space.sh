@@ -30,8 +30,9 @@ scale=$(hyprctl -j monitors | jq -r '.[] | select(.focused==true) | .scale')
 
 
 
-move=$((x + ((width / 2) - res_pos)))
-res_pos=$((res_pos * 100 / (width/2)))
+move=$((x + ((width ) - res_pos)))
+res_pos=$((res_pos * 100 / (width)))
+
 
 
 hyprctl dispatch setfloating

@@ -1,8 +1,6 @@
 [
  {"key":"F","value":"Fullscreen"},
- {"key":"D","value":"Disable fullscreen"},
- {"key":"I","value":"Fullscreen on inactive"},
- {"key":"T","value":"Toggle floating"},
+ {"key":"D","value":"Fake fullscreen"},
  {"key":"C","value":"Toggle split"},
  {"key":"P","value":"Reserved Space"},
  {"key":"Space","value":"Toggle split"}
