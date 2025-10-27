@@ -147,5 +147,6 @@ autoload -U compinit && compinit
 
 export NOTE_PATH="/mnt/data/notes"
 
-# Created by `pipx` on 2025-08-04 02:16:06
 export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:/home/notpc/.local/bin"
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
