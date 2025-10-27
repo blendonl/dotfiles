@@ -19,7 +19,8 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
 	-- { import = "plugins.ui" },
-	{ import = "plugins", rocks = { hererocks = true } } })
+	{ import = "plugins", rocks = { hererocks = true } },
+})
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
@@ -36,3 +37,4 @@ require("config.options")
 require("config.tasks")
 require("config.keybinds")
 require("config.commands")
+require("config.lsp")
