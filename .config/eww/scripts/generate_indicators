@@ -1,0 +1,74 @@
+#!/bin/bash
+
+INDICATOR_DIR="$HOME/.config/eww/indicators"
+EWW_FILE="$HOME/.config/eww/eww.yuck"
+
+sed -i '/^(defwindow list_indicator_/,/^$/d' "$EWW_FILE"
+
+for indicator_file in "$INDICATOR_DIR"/*.json; do
+    [ -e "$indicator_file" ] || continue
+
+    indicator_name=$(basename "$indicator_file" .json)
+
+    readarray -t keys < <(jq -r '.[].key' "$indicator_file")
+    readarray -t values < <(jq -r '.[].value' "$indicator_file")
+
+    cat >> "$EWW_FILE" << EOF
+
+(defwindow list_indicator_${indicator_name}
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+EOF
+
+    for i in {0..4}; do
+        if [ -n "${keys[$i]}" ]; then
+            printf '        (key-pair :pair `{"key": "%s", "value": "%s"}`)\n' "${keys[$i]}" "${values[$i]}" >> "$EWW_FILE"
+        fi
+    done
+
+    cat >> "$EWW_FILE" << 'EOF'
+)
+      (box :orientation "vertical" :width 200
+EOF
+
+    for i in {5..9}; do
+        if [ -n "${keys[$i]}" ]; then
+            printf '        (key-pair :pair `{"key": "%s", "value": "%s"}`)\n' "${keys[$i]}" "${values[$i]}" >> "$EWW_FILE"
+        fi
+    done
+
+    cat >> "$EWW_FILE" << 'EOF'
+)
+      (box :orientation "vertical" :width 200
+EOF
+
+    for i in {10..14}; do
+        if [ -n "${keys[$i]}" ]; then
+            printf '        (key-pair :pair `{"key": "%s", "value": "%s"}`)\n' "${keys[$i]}" "${values[$i]}" >> "$EWW_FILE"
+        fi
+    done
+
+    cat >> "$EWW_FILE" << 'EOF'
+)
+      (box :orientation "vertical" :width 200
+EOF
+
+    for i in {15..19}; do
+        if [ -n "${keys[$i]}" ]; then
+            printf '        (key-pair :pair `{"key": "%s", "value": "%s"}`)\n' "${keys[$i]}" "${values[$i]}" >> "$EWW_FILE"
+        fi
+    done
+
+    cat >> "$EWW_FILE" << 'EOF'
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+EOF
+done
+
+eww reload

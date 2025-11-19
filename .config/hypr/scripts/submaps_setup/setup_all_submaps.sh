@@ -8,7 +8,6 @@ for file in "${files[@]}"; do
 
     source ~/.config/hypr/scripts/submaps_setup/submaps/$file
 
-    all_allowed
 
     add_bind "escape" "exec, submap reset" "Exit submap"
 

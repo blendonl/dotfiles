@@ -11,11 +11,6 @@ background_opacity 1
 confirm_os_window_close 0
 
 enable_audio_bell no
-# selection_foreground #000000
-# selection_background #F5FBFF
 
-
-# BEGIN_KITTY_THEME
-# Catppuccin-Mocha
-include current-theme.conf
-# END_KITTY_THEME
+selection_foreground #000000
+selection_background #F5FBFF
