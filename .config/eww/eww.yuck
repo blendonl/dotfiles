@@ -3,19 +3,11 @@
 (defvar submap_name "")
 (defvar key_pairs '[{"key" "-", "value" "-"}]')
 
-(defwidget key-pair [pair index]
-  (box :class "item" :orientation "horizontal" :space-evenly false 
-    (box :class "key-box" :width 20
-      (label :class "key" :text {index < arraylength(key_pairs) ? "${pair.key}" : ""} :halign "start"))
-    (box :class "separator-box" :width 50
-      (label :class "separator" :text {index < arraylength(key_pairs) ? " → " : ""} :halign "center"))
-    (box :class "value-box" :width 130
-      (label :class "value" :text {index < arraylength(key_pairs) ? "${pair.value}" : ""} :halign "start"))))
-
-(defwidget key-column [start end]
-  (box :orientation "vertical" :width 200
-    (for i in {[start, start+1, start+2, start+3, start+4]}
-      (key-pair :pair "${key_pairs[i]}" :index i))))
+(defwidget key-pair [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
 (defwindow list_indicator
   :monitor monitor
@@ -23,11 +15,189 @@
   :stacking "overlay"
   :focusable false
   :namespace "list-hints"
-  (box :class "list-popup" :orientation "vertical" :space-evenly false 
-  (box :class "list" :orientation "vertical" :space-evenly false
-      (box  :orientation "horizontal" :space-evenly false
-        (key-column :class "item" :start 0 :end 5)
-        (key-column :class "item" :start 5 :end 10)
-        (key-column :class "item" :start 10 :end 15)
-        (key-column :class "item" :start 15 :end 20))
-      (label :halign "center" :class "exit-keys" :text "Esc - Exit"))))
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (for pair in key_pairs
+        (key-pair :pair pair)))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+
+(defwindow list_indicator_normal
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "return", "value": "Open terminal"}`)
+        (key-pair :pair `{"key": "s", "value": "Search"}`)
+        (key-pair :pair `{"key": "m", "value": "Mouse"}`)
+        (key-pair :pair `{"key": "n", "value": "Notes"}`)
+        (key-pair :pair `{"key": "i", "value": "Notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "p", "value": "Power"}`)
+        (key-pair :pair `{"key": "r", "value": "Record"}`)
+        (key-pair :pair `{"key": "w", "value": "Window management"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_notes
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "n", "value": "New Task"}`)
+        (key-pair :pair `{"key": "k", "value": "Mkanban"}`)
+        (key-pair :pair `{"key": "t", "value": "Current Task"}`)
+        (key-pair :pair `{"key": "c", "value": "Checkout to Task"}`)
+        (key-pair :pair `{"key": "d", "value": "Daily Note"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_notification
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "a", "value": "Close all notifications"}`)
+        (key-pair :pair `{"key": "c", "value": "Close current notification"}`)
+        (key-pair :pair `{"key": "h", "value": "Show last notification"}`)
+        (key-pair :pair `{"key": "v", "value": "Show all notifications"}`)
+        (key-pair :pair `{"key": "p", "value": "Pause/unpause notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "m", "value": "Mute/unmute notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_power
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "Return", "value": "Exit Hyprland"}`)
+        (key-pair :pair `{"key": "r", "value": "Reboot"}`)
+        (key-pair :pair `{"key": "s", "value": "Suspend"}`)
+        (key-pair :pair `{"key": "l", "value": "Lock screen"}`)
+        (key-pair :pair `{"key": "p", "value": "Power off"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_record
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "v", "value": "Screenshot region to clipboard"}`)
+        (key-pair :pair `{"key": "s", "value": "Screenshot region to clipboard"}`)
+        (key-pair :pair `{"key": "p", "value": "Screenshot with picker"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_reserved_space
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "p", "value": "Pin"}`)
+        (key-pair :pair `{"key": "u", "value": "Remove reserved space"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_search
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "a", "value": "    Search"}`)
+        (key-pair :pair `{"key": "v", "value": "Paste clipboard"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwindow list_indicator_window
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair :pair `{"key": "F", "value": "Fullscreen"}`)
+        (key-pair :pair `{"key": "D", "value": "Fake fullscreen"}`)
+        (key-pair :pair `{"key": "C", "value": "Toggle split"}`)
+        (key-pair :pair `{"key": "P", "value": "Reserved Space"}`)
+        (key-pair :pair `{"key": "Space", "value": "Toggle split"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+))
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))

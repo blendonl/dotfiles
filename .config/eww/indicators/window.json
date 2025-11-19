@@ -1,7 +1,8 @@
 [
  {"key":"F","value":"Fullscreen"},
  {"key":"D","value":"Fake fullscreen"},
- {"key":"C","value":"Toggle split"},
+ {"key":"C","value":"Kill active"},
  {"key":"P","value":"Reserved Space"},
+ {"key":"M","value":"Reserved Space"},
  {"key":"Space","value":"Toggle split"}
 ]
