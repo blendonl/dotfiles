@@ -1,6 +1,6 @@
 
  exec xrandr --dpi 192
-# exec xrandr --output HDMI-1 --mode 3840x2160
+exec xrandr --output HDMI-1 --mode 3840x2160
 exec --no-startup-id xsetroot -solid "#000000"
 exec --no-startup-id xclip
 
