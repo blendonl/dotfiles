@@ -36,7 +36,7 @@ return {
 			telescope.load_extension("rest")
 			-- telescope.load_extension("fyler_zoxide")
 			telescope.load_extension("harpoon")
-			telescope.load_extension("fzf")
+			-- telescope.load_extension("fzf")
 
 			require("config.telescope-multi-grep").setup()
 			return telescope
