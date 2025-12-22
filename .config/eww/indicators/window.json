@@ -3,6 +3,6 @@
  {"key":"D","value":"Fake fullscreen"},
  {"key":"C","value":"Kill active"},
  {"key":"P","value":"Reserved Space"},
- {"key":"M","value":"Reserved Space"},
+ {"key":"M","value":"Move window"},
  {"key":"Space","value":"Toggle split"}
 ]

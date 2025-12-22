@@ -27,21 +27,19 @@ add_bind() {
     if [[ ! $function == *"submap"* ]] then
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
         TEXT+=$(echo -e "\nbind=, $key, $function\n")
-        TEXT+=$(echo -e "\n\nbind=, $key, submap, reset\n")
+        TEXT+=$(echo -e "\nbind=, $key, submap, reset\n\n")
     elif [[ $key == *"escape"* ]] then
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
-        TEXT+=$(echo -e "\n\nbind=, $key, submap, reset\n")
+        TEXT+=$(echo -e "\nbind=, $key, submap, reset\n\n")
     else 
         indicator_submap=$(echo $function | sed 's/submap, //g')
         TEXT+=$(echo -e "\n\nbind=, $key, exec, $show_indicator $indicator_submap\n")
-        TEXT+=$(echo -e "\nbind=, $key, $function\n")
+        TEXT+=$(echo -e "\nbind=, $key, $function\n\n")
     fi
 
+    TEXT+=$(echo -e "\n\nsubmap = reset")
 
 
-    TEXT+=$(echo -e "\nbind=, catchall, exec, $exit_submap \n")
-    TEXT+=$(echo -e "\nbind=, catchall, submap, reset\n")
-    TEXT+=$(echo -e "\nsubmap = reset")
 
     ALL_USED_KEYS+=("$key")
 
@@ -77,6 +75,10 @@ TEXT=''
 if [ ! -z "$BIND" ]; then
     TEXT+=$(echo -e "\n$BIND, exec, $show_indicator $SUBMAP")
     TEXT+=$(echo -e "\n$BIND, submap, $SUBMAP\n \n")
+
 fi
-TEXT+=$(echo -e "\nsubmap= $SUBMAP\n\ntmp")
+
+TEXT+=$(echo -e "\nsubmap= $SUBMAP\n\n")
+TEXT+=$(echo -e "\n\nbind=, catchall, exec, $exit_submap \n")
+TEXT+=$(echo -e "\nbind=, catchall, submap, reset\n")
 
