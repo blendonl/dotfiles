@@ -1,0 +1,445 @@
+
+(defwidget key-pair-move-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-move-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-move-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-move-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_move
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-move-col0 :pair `{"key": "1", "value": "Move to workspace 1"}`)
+        (key-pair-move-col0 :pair `{"key": "2", "value": "Move to workspace 2"}`)
+        (key-pair-move-col0 :pair `{"key": "3", "value": "Move to workspace 3"}`)
+        (key-pair-move-col0 :pair `{"key": "4", "value": "Move to workspace 4"}`)
+        (key-pair-move-col0 :pair `{"key": "5", "value": "Move to workspace 5"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-move-col1 :pair `{"key": "6", "value": "Move to workspace 6"}`)
+        (key-pair-move-col1 :pair `{"key": "7", "value": "Move to workspace 7"}`)
+        (key-pair-move-col1 :pair `{"key": "8", "value": "Move to workspace 8"}`)
+        (key-pair-move-col1 :pair `{"key": "9", "value": "Move to workspace 9"}`)
+        (key-pair-move-col1 :pair `{"key": "0", "value": "Move to workspace 10"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-normal-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 120)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-normal-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-normal-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-normal-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_normal
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-normal-col0 :pair `{"key": "return", "value": "Open terminal"}`)
+        (key-pair-normal-col0 :pair `{"key": "1", "value": "Go to workspace 1"}`)
+        (key-pair-normal-col0 :pair `{"key": "2", "value": "Go to workspace 2"}`)
+        (key-pair-normal-col0 :pair `{"key": "3", "value": "Go to workspace 3"}`)
+        (key-pair-normal-col0 :pair `{"key": "4", "value": "Go to workspace 4"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-normal-col1 :pair `{"key": "5", "value": "Go to workspace 5"}`)
+        (key-pair-normal-col1 :pair `{"key": "6", "value": "Go to workspace 6"}`)
+        (key-pair-normal-col1 :pair `{"key": "7", "value": "Go to workspace 7"}`)
+        (key-pair-normal-col1 :pair `{"key": "8", "value": "Go to workspace 8"}`)
+        (key-pair-normal-col1 :pair `{"key": "9", "value": "Go to workspace 9"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-normal-col2 :pair `{"key": "0", "value": "Go to workspace 10"}`)
+        (key-pair-normal-col2 :pair `{"key": "s", "value": "Search"}`)
+        (key-pair-normal-col2 :pair `{"key": "m", "value": "Mouse"}`)
+        (key-pair-normal-col2 :pair `{"key": "n", "value": "Notes"}`)
+        (key-pair-normal-col2 :pair `{"key": "i", "value": "Notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-normal-col3 :pair `{"key": "p", "value": "Power"}`)
+        (key-pair-normal-col3 :pair `{"key": "r", "value": "Record"}`)
+        (key-pair-normal-col3 :pair `{"key": "w", "value": "Window management"}`)
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-notes-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notes-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notes-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notes-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_notes
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-notes-col0 :pair `{"key": "n", "value": "New Task"}`)
+        (key-pair-notes-col0 :pair `{"key": "k", "value": "Mkanban"}`)
+        (key-pair-notes-col0 :pair `{"key": "t", "value": "Current Task"}`)
+        (key-pair-notes-col0 :pair `{"key": "c", "value": "Checkout to Task"}`)
+        (key-pair-notes-col0 :pair `{"key": "d", "value": "Daily Note"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-notification-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notification-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notification-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-notification-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_notification
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-notification-col0 :pair `{"key": "a", "value": "Close all notifications"}`)
+        (key-pair-notification-col0 :pair `{"key": "c", "value": "Close current notification"}`)
+        (key-pair-notification-col0 :pair `{"key": "h", "value": "Show last notification"}`)
+        (key-pair-notification-col0 :pair `{"key": "v", "value": "Show all notifications"}`)
+        (key-pair-notification-col0 :pair `{"key": "p", "value": "Pause/unpause notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-notification-col1 :pair `{"key": "m", "value": "Mute/unmute notifications"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-power-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 120)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-power-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-power-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-power-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_power
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-power-col0 :pair `{"key": "Return", "value": "Exit Hyprland"}`)
+        (key-pair-power-col0 :pair `{"key": "r", "value": "Reboot"}`)
+        (key-pair-power-col0 :pair `{"key": "s", "value": "Suspend"}`)
+        (key-pair-power-col0 :pair `{"key": "l", "value": "Lock screen"}`)
+        (key-pair-power-col0 :pair `{"key": "p", "value": "Power off"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-record-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-record-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-record-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-record-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_record
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-record-col0 :pair `{"key": "v", "value": "Screenshot region to clipboard"}`)
+        (key-pair-record-col0 :pair `{"key": "s", "value": "Screenshot region to clipboard"}`)
+        (key-pair-record-col0 :pair `{"key": "p", "value": "Screenshot with picker"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-reserved_space-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-reserved_space-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-reserved_space-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-reserved_space-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_reserved_space
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-reserved_space-col0 :pair `{"key": "p", "value": "Pin"}`)
+        (key-pair-reserved_space-col0 :pair `{"key": "u", "value": "Remove reserved space"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-search-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-search-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-search-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-search-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_search
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-search-col0 :pair `{"key": "a", "value": "    Search"}`)
+        (key-pair-search-col0 :pair `{"key": "v", "value": "Paste clipboard"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
+(defwidget key-pair-window-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-window-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 100)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-window-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-window-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_window
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-window-col0 :pair `{"key": "F", "value": "Fullscreen"}`)
+        (key-pair-window-col0 :pair `{"key": "D", "value": "Fake fullscreen"}`)
+        (key-pair-window-col0 :pair `{"key": "C", "value": "Kill active"}`)
+        (key-pair-window-col0 :pair `{"key": "P", "value": "Reserved Space"}`)
+        (key-pair-window-col0 :pair `{"key": "M", "value": "Move window"}`)
+)
+      (box :orientation "vertical" :width 200
+        (key-pair-window-col1 :pair `{"key": "Space", "value": "Toggle split"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
