@@ -3,7 +3,7 @@ return {
 	dependencies = { "nvim-telescope/telescope.nvim" },
 	config = function()
 		require("textcase").setup({})
-		require("telescope").load_extension("textcase")
+		require(".config.nvim.lua.config.keybinds.telescope").load_extension("textcase")
 	end,
 	keys = {
 		"<leader>gc", -- Default invocation prefix

@@ -38,7 +38,7 @@ return {
 		cmd = { "TSUpdateSync", "TSUpdate", "TSInstall" },
 		keys = {
 			{ "<c-space>", desc = "Increment selection" },
-			{ "<bs>", desc = "Decrement selection", mode = "x" },
+			{ "<bs>",      desc = "Decrement selection", mode = "x" },
 		},
 		---@type TSConfig
 		---@diagnostic disable-next-line: missing-fields
@@ -103,27 +103,103 @@ return {
 			},
 		},
 		config = function(_, opts)
-			if type(opts.ensure_installed) == "table" then
-				---@type table<string, boolean>
-				local added = {}
-				opts.ensure_installed = vim.tbl_filter(function(lang)
-					if added[lang] then
-						return false
-					end
-					added[lang] = true
-					return true
-				end, opts.ensure_installed)
-			end
-			require("nvim-treesitter.configs").setup(opts)
-		end,
-	},
+			require("nvim-treesitter.configs").setup({
+				modules = {},
+				sync_install = false,
+				ignore_install = {},
+				-- Add languages to be installed here that you want installed for treesitter
+				ensure_installed = {
+					"c",
+					"cpp",
+					"go",
+					"lua",
+					"python",
+					"rust",
+					"tsx",
+					"javascript",
+					"typescript",
+					"vimdoc",
+					"vim",
+					"bash",
+				},
 
+				-- Autoinstall languages that are not installed. Defaults to false (but you can change for yourself!)
+				auto_install = false,
+
+				highlight = { enable = true },
+				indent = { enable = true },
+				incremental_selection = {
+					enable = true,
+					keymaps = {
+						init_selection = "<c-space>",
+						node_incremental = "<c-space>",
+						scope_incremental = "<c-s>",
+						node_decremental = "<M-space>",
+					},
+				},
+				textobjects = {
+					select = {
+						enable = true,
+						lookahead = true, -- Automatically jump forward to textobj, similar to targets.vim
+						keymaps = {
+							-- You can use the capture groups defined in textobjects.scm
+							["aa"] = "@parameter.outer",
+							["ia"] = "@parameter.inner",
+							["af"] = "@function.outer",
+							["ac"] = "@class.outer",
+							["if"] = "@function.inner",
+							["ic"] = "@class.inner",
+						},
+					},
+					move = {
+						enable = true,
+						set_jumps = true, -- whether to set jumps in the jumplist
+						goto_next_start = {
+							["]m"] = "@function.outer",
+							["]]"] = "@class.outer",
+						},
+						goto_next_end = {
+							["]M"] = "@function.outer",
+							["]["] = "@class.outer",
+						},
+						goto_previous_start = {
+							["[m"] = "@function.outer",
+							["[["] = "@class.outer",
+						},
+						goto_previous_end = {
+							["[M"] = "@function.outer",
+							["[]"] = "@class.outer",
+						},
+					},
+					swap = {
+						enable = true,
+						swap_next = {
+							["<leader>a"] = "@parameter.inner",
+						},
+						swap_previous = {
+							["<leader>A"] = "@parameter.inner",
+						},
+					},
+				},
+			})
+		end
+	},
 	{
 		"nvim-treesitter/nvim-treesitter-context",
 		event = "VeryLazy",
 		enabled = true,
-		opts = { mode = "cursor", max_lines = 3 },
-		keys = {},
+		keys = {
+			{
+				"<leader>ck",
+				function()
+					require("treesitter-context").go_to_context(vim.v.count1)
+				end,
+				desc = "Go To Context"
+			},
+		},
+		opts = { mode = "cursor", max_lines = 3
+
+		},
 	},
 	{
 		"windwp/nvim-ts-autotag",
