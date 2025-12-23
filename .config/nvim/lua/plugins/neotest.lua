@@ -9,8 +9,53 @@ return {
 			"antoinemadec/FixCursorHold.nvim",
 			"nvim-treesitter/nvim-treesitter",
 		},
+		keys = {
+			{
+				"<leader>tt",
+				function()
+					require("neotest").run.run()
+				end,
+				desc = "Run the nearest test"
+			},
+			{
+				"<leader>tT",
+				function()
+					require("neotest").run.run(vim.fn.expand("%"))
+				end,
+				desc = "Test the current file"
+			},
+			{
+				"<leader>td",
+				function()
+					require("neotest").run.run({ strategy = "dap", suite = true })
+				end,
+				desc = "Debug the nearest test"
+			},
+			{
+				"<leader>tc",
+				function()
+					require("neotest").run.stop()
+				end,
+				desc = "Stop the current test"
+			},
+			{
+				"<leader>ta",
+				function()
+					require("neotest").run.attach()
+				end,
+				desc = "Attach to the current test"
+			},
+			{
+				"<leader>to",
+				function()
+					require("neotest").output.open()
+				end,
+				desc = "Attach to the current test"
+			},
+
+		},
 		config = function()
-			require("neotest").setup({
+			require(".config.nvim.lua.config.keybinds.neotest").setup({
 				adapters = {
 					require("neotest-jest")({
 						jestCommand = "yarn test --",
@@ -147,8 +192,10 @@ return {
 				watch = {
 					enabled = true,
 					symbol_queries = {
-						javascript = '  ;query\n  ;Captures named imports\n  (import_specifier name: (identifier) @symbol)\n  ;Captures default import\n  (import_clause (identifier) @symbol)\n  ;Capture require statements\n  (variable_declarator \n  name: (identifier) @symbol\n  value: (call_expression (identifier) @function  (#eq? @function "require")))\n  ;Capture namespace imports\n  (namespace_import (identifier) @symbol)\n',
-						typescript = '  ;query\n  ;Captures named imports\n  (import_specifier name: (identifier) @symbol)\n  ;Captures default import\n  (import_clause (identifier) @symbol)\n  ;Capture require statements\n  (variable_declarator \n  name: (identifier) @symbol\n  value: (call_expression (identifier) @function  (#eq? @function "require")))\n  ;Capture namespace imports\n  (namespace_import (identifier) @symbol)\n',
+						javascript =
+						'  ;query\n  ;Captures named imports\n  (import_specifier name: (identifier) @symbol)\n  ;Captures default import\n  (import_clause (identifier) @symbol)\n  ;Capture require statements\n  (variable_declarator \n  name: (identifier) @symbol\n  value: (call_expression (identifier) @function  (#eq? @function "require")))\n  ;Capture namespace imports\n  (namespace_import (identifier) @symbol)\n',
+						typescript =
+						'  ;query\n  ;Captures named imports\n  (import_specifier name: (identifier) @symbol)\n  ;Captures default import\n  (import_clause (identifier) @symbol)\n  ;Capture require statements\n  (variable_declarator \n  name: (identifier) @symbol\n  value: (call_expression (identifier) @function  (#eq? @function "require")))\n  ;Capture namespace imports\n  (namespace_import (identifier) @symbol)\n',
 					},
 				},
 			})

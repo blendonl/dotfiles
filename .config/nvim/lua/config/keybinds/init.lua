@@ -1,8 +1,8 @@
-require("config.keybinds.editor")
-require("config.keybinds.coding")
--- require("config.keybinds.tree-sitter")
-require("config.keybinds.util")
-require("config.keybinds.lsp")
+require("config.keybinds.diagnostics")
+require("config.keybinds.lsp-config")
+require("config.keybinds.telescope")
+require("config.keybinds.which-key")
+require("config.keybinds.window")
 
 local map = vim.keymap.set
 
