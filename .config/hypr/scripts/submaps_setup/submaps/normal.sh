@@ -20,6 +20,7 @@ add_bind "n" "submap, notes" "Notes"
 add_bind "i" "submap, notification" "Notifications"
 add_bind "p" "submap, power" "Power"
 add_bind "r" "submap, record" "Record"
+add_bind "g" "submap, google" "Google Apps"
 add_bind "w" "submap, window" "Window management"      
 
 
