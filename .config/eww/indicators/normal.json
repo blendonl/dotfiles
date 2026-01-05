@@ -16,5 +16,6 @@
  {"key":"i","value":"Notifications"},
  {"key":"p","value":"Power"},
  {"key":"r","value":"Record"},
+ {"key":"g","value":"Google Apps"},
  {"key":"w","value":"Window management"}
 ]
