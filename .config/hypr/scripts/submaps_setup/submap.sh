@@ -4,8 +4,10 @@ source ~/.config/hypr/scripts/submaps_setup/shared.sh
 
 
 SUBMAP="$1"
-BIND="$2"
+EXPRESSION="$2"
+BIND="bind"
 shift
+
 
 
 
@@ -22,22 +24,25 @@ add_bind() {
     local key="$1"
     local function="$2"
     local description="$3"
+    BIND="bind$4"
     TEXT=$(echo -e "$TEXT" | sed '$d')
 
+
     if [[ ! $function == *"submap"* ]] then
-        TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
-        TEXT+=$(echo -e "\nbind=, $key, $function\n")
-        TEXT+=$(echo -e "\nbind=, $key, submap, reset\n\n")
+        TEXT+=$(echo -e "\n\n$BIND=, $key, exec, $exit_submap\n")
+        TEXT+=$(echo -e "\n$BIND=, $key, $function\n")
+        TEXT+=$(echo -e "\n$BIND=, $key, submap, reset\n\n")
     elif [[ $key == *"escape"* ]] then
-        TEXT+=$(echo -e "\n\nbind=, $key, exec, $exit_submap\n")
-        TEXT+=$(echo -e "\nbind=, $key, submap, reset\n\n")
+        TEXT+=$(echo -e "\n\n$BIND=, $key, exec, $exit_submap\n")
+        TEXT+=$(echo -e "\n$BIND=, $key, submap, reset\n\n")
     else 
         indicator_submap=$(echo $function | sed 's/submap, //g')
-        TEXT+=$(echo -e "\n\nbind=, $key, exec, $show_indicator $indicator_submap\n")
-        TEXT+=$(echo -e "\nbind=, $key, $function\n\n")
+        TEXT+=$(echo -e "\n\n$BIND=, $key, exec, $show_indicator $indicator_submap\n")
+        TEXT+=$(echo -e "\n$BIND=, $key, $function\n\n")
     fi
 
     TEXT+=$(echo -e "\n\nsubmap = reset")
+
 
 
 
@@ -72,13 +77,13 @@ add_key_pair() {
 
 TEXT=''
 
-if [ ! -z "$BIND" ]; then
-    TEXT+=$(echo -e "\n$BIND, exec, $show_indicator $SUBMAP")
-    TEXT+=$(echo -e "\n$BIND, submap, $SUBMAP\n \n")
+if [ ! -z "$EXPRESSION" ]; then
+    TEXT+=$(echo -e "\n$EXPRESSION, exec, $show_indicator $SUBMAP")
+    TEXT+=$(echo -e "\n$EXPRESSION, submap, $SUBMAP\n \n")
 
 fi
 
 TEXT+=$(echo -e "\nsubmap= $SUBMAP\n\n")
-TEXT+=$(echo -e "\n\nbind=, catchall, exec, $exit_submap \n")
-TEXT+=$(echo -e "\nbind=, catchall, submap, reset\n")
+TEXT+=$(echo -e "\n\n$BIND=, catchall, exec, $exit_submap \n")
+TEXT+=$(echo -e "\n$BIND=, catchall, submap, reset\n")
 

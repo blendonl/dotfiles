@@ -12,6 +12,8 @@ add_bind "p" "submap, power" "Power"
 add_bind "r" "submap, record" "Record"
 add_bind "g" "submap, go" "Go to"
 add_bind "w" "submap, window" "Window management"      
+add_bind "space" "focusworkspaceoncurrentmonitor, previous" "Go to previous workspace"
+
 
 
 

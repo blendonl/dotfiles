@@ -7,5 +7,6 @@
  {"key":"p","value":"Power"},
  {"key":"r","value":"Record"},
  {"key":"g","value":"Go to"},
- {"key":"w","value":"Window management"}
+ {"key":"w","value":"Window management"},
+ {"key":"space","value":"Go to previous workspace"}
 ]
