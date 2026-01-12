@@ -4,5 +4,6 @@
  {"key":"C","value":"Kill active"},
  {"key":"P","value":"Reserved Space"},
  {"key":"M","value":"Move window"},
+ {"key":"R","value":"Resize window"},
  {"key":"Space","value":"Toggle split"}
 ]

@@ -340,7 +340,7 @@
 
 (defwidget key-pair-normal-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 100)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -376,6 +376,7 @@
         (key-pair-normal-col1 :pair `{"key": "r", "value": "Record"}`)
         (key-pair-normal-col1 :pair `{"key": "g", "value": "Go to"}`)
         (key-pair-normal-col1 :pair `{"key": "w", "value": "Window management"}`)
+        (key-pair-normal-col1 :pair `{"key": "space", "value": "Go to previous workspace"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -668,6 +669,51 @@
 )
     (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
 
+(defwidget key-pair-resize-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-resize-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-resize-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-resize-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_resize
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-resize-col0 :pair `{"key": "h", "value": "Increase width"}`)
+        (key-pair-resize-col0 :pair `{"key": "j", "value": "Decrease height"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
 (defwidget key-pair-search-col0 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
     (label :class "key" :text "${pair.key}" :halign "start" :width 20)
@@ -753,6 +799,7 @@
         (key-pair-window-col0 :pair `{"key": "M", "value": "Move window"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-window-col1 :pair `{"key": "R", "value": "Resize window"}`)
         (key-pair-window-col1 :pair `{"key": "Space", "value": "Toggle split"}`)
 )
       (box :orientation "vertical" :width 200
