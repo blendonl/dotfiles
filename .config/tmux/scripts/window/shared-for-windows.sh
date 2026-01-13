@@ -7,8 +7,6 @@ PANE_COUNT=$(tmux list-panes | egrep -o '^[^:]+' | sort -n | tail -n 1)
 INDEX=$(tmux show-environment "$WINDOW_NAME"_INDEX 2>/dev/null | cut -d= -f2)
 WINDOW_PATH="#{pane_current_path}"
 
-echo $(tmux list-windows | grep  $WINDOW_NAME | egrep -o '^[^:]+')
-
 
 if [ -n "$3" ]; then
     WINDOW_PATH="$3"
