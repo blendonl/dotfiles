@@ -490,7 +490,7 @@
 
 (defwidget key-pair-personal-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -519,9 +519,10 @@
         (key-pair-personal-col0 :pair `{"key": "b", "value": "Go to Browser"}`)
         (key-pair-personal-col0 :pair `{"key": "d", "value": "Go to Discord"}`)
         (key-pair-personal-col0 :pair `{"key": "w", "value": "Go to WhatsApp"}`)
-        (key-pair-personal-col0 :pair `{"key": "g", "value": "Google"}`)
+        (key-pair-personal-col0 :pair `{"key": "q", "value": "Go to Quran"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-personal-col1 :pair `{"key": "g", "value": "Google"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -702,8 +703,10 @@
   (box :class "list-popup" :orientation "vertical" :space-evenly false
     (box :class "list" :orientation "horizontal" :space-evenly false
       (box :orientation "vertical" :width 200
-        (key-pair-resize-col0 :pair `{"key": "h", "value": "Increase width"}`)
-        (key-pair-resize-col0 :pair `{"key": "j", "value": "Decrease height"}`)
+        (key-pair-resize-col0 :pair `{"key": "h", "value": "Resize width left"}`)
+        (key-pair-resize-col0 :pair `{"key": "j", "value": "Resize height right"}`)
+        (key-pair-resize-col0 :pair `{"key": "k", "value": "Resize height"}`)
+        (key-pair-resize-col0 :pair `{"key": "l", "value": "Resize width"}`)
 )
       (box :orientation "vertical" :width 200
 )
