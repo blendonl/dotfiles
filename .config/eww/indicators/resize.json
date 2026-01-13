@@ -1,4 +1,6 @@
 [
- {"key":"h","value":"Increase width"},
- {"key":"j","value":"Decrease height"}
+ {"key":"h","value":"Resize width left"},
+ {"key":"j","value":"Resize height right"},
+ {"key":"k","value":"Resize height"},
+ {"key":"l","value":"Resize width"}
 ]
