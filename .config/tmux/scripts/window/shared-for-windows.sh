@@ -8,6 +8,8 @@ INDEX=$(tmux show-environment "$WINDOW_NAME"_INDEX 2>/dev/null | cut -d= -f2)
 WINDOW_PATH="#{pane_current_path}"
 
 
+
+
 if [ -n "$3" ]; then
     WINDOW_PATH="$3"
 
