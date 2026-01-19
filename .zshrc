@@ -152,7 +152,7 @@ export ANDROID_HOME=$HOME/Android/Sdk
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
-source ~/.config/kitty/pasteimage.sh
+# source ~/.config/kitty/pasteimage.sh
 
 # opencode
 export PATH=/home/notpc/.opencode/bin:$PATH
