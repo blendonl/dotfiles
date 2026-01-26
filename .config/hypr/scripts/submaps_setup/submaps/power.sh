@@ -6,7 +6,7 @@ add_bind "Return" "exec, hyprctl dispatch exit" "Exit Hyprland"
 add_bind "r" "exec, systemctl reboot" "Reboot"
 add_bind "s" "exec, systemctl suspend" "Suspend"
 add_bind "l" "exec, hyprlock; exec"   "Lock screen"
-add_bind "p" "exec, RESULT=$(echo "no\nno\nyes\n" | wofi --show dmenu); if [ $RESULT = "yes" ]; then systemctl poweroff; fi" "Power off"          
+add_bind "p" "exec, $HOME/.config/hypr/scripts/power/shutdown.sh" "Power off"          
 
 
 

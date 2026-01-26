@@ -803,6 +803,7 @@
 )
       (box :orientation "vertical" :width 200
         (key-pair-window-col1 :pair `{"key": "R", "value": "Resize window"}`)
+        (key-pair-window-col1 :pair `{"key": "W", "value": "Resize window"}`)
         (key-pair-window-col1 :pair `{"key": "Space", "value": "Toggle split"}`)
 )
       (box :orientation "vertical" :width 200
