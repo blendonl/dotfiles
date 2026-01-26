@@ -1,0 +1,5 @@
+n: Create new task
+p: Show current task
+c: Checkout task
+a: Show agenda
+
