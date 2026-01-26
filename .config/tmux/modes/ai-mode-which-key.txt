@@ -1,0 +1,4 @@
+o: Open OpenCode window
+c: Open Claude window
+x: Open Codex window
+

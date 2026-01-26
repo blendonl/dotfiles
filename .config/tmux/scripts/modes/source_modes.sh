@@ -3,7 +3,7 @@
 
 MODES_DIR="$HOME/.config/tmux/scripts/modes/mode"
 
-MODES=($(ls $MODES_DIR ))
+MODES=($(ls $MODES_DIR/*.conf 2>/dev/null | xargs -n1 basename))
 
 for MODE in "${MODES[@]}"; do
     source "$MODES_DIR/$MODE"
@@ -14,7 +14,7 @@ done
 
 SOURCED_MODES_DIR="$HOME/.config/tmux/modes"
 
-SOURCED_MODES=($(ls $SOURCED_MODES_DIR))
+SOURCED_MODES=($(ls $SOURCED_MODES_DIR/*.conf 2>/dev/null | xargs -n1 basename))
 
 
 TEXT=""
