@@ -10,6 +10,7 @@ add_bind "C" "killactive" "Kill active"
 add_bind "P" "submap, reserved_space" "Reserved Space"
 add_bind "M" "submap, move" "Move window"
 add_bind "R" "submap, resize" "Resize window"
+add_bind "W" "exec, $HOME/.config/hypr/scripts/window/waydroid-resize.sh" "Resize window"
 add_bind "Space" "togglesplit" "Toggle split"
 
 

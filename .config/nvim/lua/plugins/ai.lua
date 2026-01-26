@@ -136,29 +136,77 @@ return {
 
 	{ "github/copilot.vim", opts = {}, config = function() end },
 
+	-- {
+	-- 	"coder/claudecode.nvim",
+	-- 	dependencies = { "folke/snacks.nvim" },
+	-- 	config = true,
+	-- 	keys = {
+	-- 		{ "<leader>a", nil, desc = "AI/Claude Code" },
+	-- 		{ "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+	-- 		{ "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+	-- 		{ "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+	-- 		{ "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+	-- 		{ "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
+	-- 		{ "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
+	-- 		{ "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+	-- 		{
+	-- 			"<leader>ah",
+	-- 			"<cmd>ClaudeCodeHttpGenerate<cr>",
+	-- 			mode = "v",
+	-- 			desc = "Send to Claude Http",
+	-- 		},
+	-- 		{
+	-- 			"<leader>as",
+	-- 			"<cmd>ClaudeCodeTreeAdd<cr>",
+	-- 			desc = "Add file",
+	-- 			ft = { "NvimTree", "neo-tree", "oil", "minifiles" },
+	-- 		},
+	-- 		-- Diff management
+	-- 		{ "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+	-- 		{ "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+	-- 	},
 	{
-		"coder/claudecode.nvim",
-		dependencies = { "folke/snacks.nvim" },
-		config = true,
+		"carlos-algms/agentic.nvim",
+
+		opts = {
+			-- Available by default: "claude-acp" | "gemini-acp" | "codex-acp" | "opencode-acp" | "cursor-acp" | "auggie-acp"
+			provider = "opencode-acp", -- setting the name here is all you need to get started
+		},
+
+		-- these are just suggested keymaps; customize as desired
 		keys = {
-			{ "<leader>a",  nil,                               desc = "AI/Claude Code" },
-			{ "<leader>ac", "<cmd>ClaudeCode<cr>",             desc = "Toggle Claude" },
-			{ "<leader>af", "<cmd>ClaudeCodeFocus<cr>",        desc = "Focus Claude" },
-			{ "<leader>ar", "<cmd>ClaudeCode --resume<cr>",    desc = "Resume Claude" },
-			{ "<leader>aC", "<cmd>ClaudeCode --continue<cr>",  desc = "Continue Claude" },
-			{ "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>",  desc = "Select Claude model" },
-			{ "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>",        desc = "Add current buffer" },
-			{ "<leader>as", "<cmd>ClaudeCodeSend<cr>",         mode = "v",                  desc = "Send to Claude" },
-			{ "<leader>ah", "<cmd>ClaudeCodeHttpGenerate<cr>", mode = "v",                  desc = "Send to Claude Http" },
+			{
+				"<leader>aa",
+				function()
+					require("agentic").toggle()
+				end,
+				mode = { "n", "v", "i" },
+				desc = "Toggle Agentic Chat",
+			},
+			{
+				"<leader>av",
+				function()
+					require("agentic").add_selection_or_file_to_context()
+				end,
+				mode = { "n", "v" },
+				desc = "Add file or selection to Agentic to Context",
+			},
+			{
+				"<leader>an",
+				function()
+					require("agentic").new_session()
+				end,
+				mode = { "n", "v" },
+				desc = "New Agentic Session",
+			},
 			{
 				"<leader>as",
-				"<cmd>ClaudeCodeTreeAdd<cr>",
-				desc = "Add file",
-				ft = { "NvimTree", "neo-tree", "oil", "minifiles" },
+				function()
+					require("agentic").stop_generation()
+				end,
+				mode = { "n", "v" },
+				desc = "Stop Selection to Agentic",
 			},
-			-- Diff management
-			{ "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
-			{ "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>",   desc = "Deny diff" },
 		},
-	}
+	},
 }
