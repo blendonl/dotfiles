@@ -77,10 +77,8 @@
   (box :class "list-popup" :orientation "vertical" :space-evenly false
     (box :class "list" :orientation "horizontal" :space-evenly false
       (box :orientation "vertical" :width 200
-        (key-pair-gaming-col0 :pair `{"key": "w", "value": "Work"}`)
-        (key-pair-gaming-col0 :pair `{"key": "p", "value": "Personal"}`)
-        (key-pair-gaming-col0 :pair `{"key": "g", "value": "Gaming"}`)
-        (key-pair-gaming-col0 :pair `{"key": "c", "value": "Content"}`)
+        (key-pair-gaming-col0 :pair `{"key": "s", "value": "Steam"}`)
+        (key-pair-gaming-col0 :pair `{"key": "k", "value": "Kovaaks"}`)
 )
       (box :orientation "vertical" :width 200
 )
