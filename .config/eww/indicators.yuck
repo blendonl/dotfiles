@@ -32,7 +32,7 @@
   (box :class "list-popup" :orientation "vertical" :space-evenly false
     (box :class "list" :orientation "horizontal" :space-evenly false
       (box :orientation "vertical" :width 200
-        (key-pair-content-col0 :pair `{"key": "5", "value": "Go to workspace 5"}`)
+        (key-pair-content-col0 :pair `{"key": "y", "value": "Go to Youtube"}`)
         (key-pair-content-col0 :pair `{"key": "m", "value": "Go to Music"}`)
 )
       (box :orientation "vertical" :width 200
@@ -126,8 +126,6 @@
       (box :orientation "vertical" :width 200
         (key-pair-go-col0 :pair `{"key": "w", "value": "Work"}`)
         (key-pair-go-col0 :pair `{"key": "p", "value": "Personal"}`)
-        (key-pair-go-col0 :pair `{"key": "g", "value": "Gaming"}`)
-        (key-pair-go-col0 :pair `{"key": "c", "value": "Content"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -279,6 +277,51 @@
 )
     (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
 
+(defwidget key-pair-monitor-col0 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-monitor-col1 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-monitor-col2 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwidget key-pair-monitor-col3 [pair]
+  (box :class "item" :orientation "horizontal" :space-evenly false
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "separator" :text " → " :halign "center" :width 50)
+    (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
+
+(defwindow list_indicator_monitor
+  :monitor monitor
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :anchor "bottom center")
+  :stacking "overlay"
+  :focusable false
+  :namespace "list-hints"
+  (box :class "list-popup" :orientation "vertical" :space-evenly false
+    (box :class "list" :orientation "horizontal" :space-evenly false
+      (box :orientation "vertical" :width 200
+        (key-pair-monitor-col0 :pair `{"key": "F", "value": "Focus Monitor"}`)
+        (key-pair-monitor-col0 :pair `{"key": "M", "value": "Move current workspace to monitor"}`)
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+      (box :orientation "vertical" :width 200
+)
+)
+    (label :halign "center" :class "exit-keys" :text "Esc - Exit")))
+
 (defwidget key-pair-move-col0 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
     (label :class "key" :text "${pair.key}" :halign "start" :width 20)
@@ -287,7 +330,7 @@
 
 (defwidget key-pair-move-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -312,18 +355,10 @@
   (box :class "list-popup" :orientation "vertical" :space-evenly false
     (box :class "list" :orientation "horizontal" :space-evenly false
       (box :orientation "vertical" :width 200
-        (key-pair-move-col0 :pair `{"key": "1", "value": "Move to workspace 1"}`)
-        (key-pair-move-col0 :pair `{"key": "2", "value": "Move to workspace 2"}`)
-        (key-pair-move-col0 :pair `{"key": "3", "value": "Move to workspace 3"}`)
-        (key-pair-move-col0 :pair `{"key": "4", "value": "Move to workspace 4"}`)
-        (key-pair-move-col0 :pair `{"key": "5", "value": "Move to workspace 5"}`)
+        (key-pair-move-col0 :pair `{"key": "w", "value": "Work"}`)
+        (key-pair-move-col0 :pair `{"key": "p", "value": "Personal"}`)
 )
       (box :orientation "vertical" :width 200
-        (key-pair-move-col1 :pair `{"key": "6", "value": "Move to workspace 6"}`)
-        (key-pair-move-col1 :pair `{"key": "7", "value": "Move to workspace 7"}`)
-        (key-pair-move-col1 :pair `{"key": "8", "value": "Move to workspace 8"}`)
-        (key-pair-move-col1 :pair `{"key": "9", "value": "Move to workspace 9"}`)
-        (key-pair-move-col1 :pair `{"key": "0", "value": "Move to workspace 10"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -340,13 +375,13 @@
 
 (defwidget key-pair-normal-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 100)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
 (defwidget key-pair-normal-col2 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 100)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -366,19 +401,21 @@
     (box :class "list" :orientation "horizontal" :space-evenly false
       (box :orientation "vertical" :width 200
         (key-pair-normal-col0 :pair `{"key": "return", "value": "Open terminal"}`)
+        (key-pair-normal-col0 :pair `{"key": "m", "value": "Monitor"}`)
         (key-pair-normal-col0 :pair `{"key": "s", "value": "Search"}`)
-        (key-pair-normal-col0 :pair `{"key": "m", "value": "Mouse"}`)
+        (key-pair-normal-col0 :pair `{"key": "c", "value": "Click"}`)
         (key-pair-normal-col0 :pair `{"key": "n", "value": "Notes"}`)
-        (key-pair-normal-col0 :pair `{"key": "i", "value": "Notifications"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-normal-col1 :pair `{"key": "i", "value": "Notifications"}`)
         (key-pair-normal-col1 :pair `{"key": "p", "value": "Power"}`)
         (key-pair-normal-col1 :pair `{"key": "r", "value": "Record"}`)
         (key-pair-normal-col1 :pair `{"key": "g", "value": "Go to"}`)
         (key-pair-normal-col1 :pair `{"key": "w", "value": "Window management"}`)
-        (key-pair-normal-col1 :pair `{"key": "space", "value": "Go to previous workspace"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-normal-col2 :pair `{"key": "TAB", "value": "Move Workspace to Monitor"}`)
+        (key-pair-normal-col2 :pair `{"key": "space", "value": "Go to previous workspace"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -539,7 +576,7 @@
 
 (defwidget key-pair-power-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -571,6 +608,7 @@
         (key-pair-power-col0 :pair `{"key": "p", "value": "Power off"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-power-col1 :pair `{"key": "e", "value": "Reload Setup"}`)
 )
       (box :orientation "vertical" :width 200
 )
@@ -821,7 +859,7 @@
 
 (defwidget key-pair-work-col1 [pair]
   (box :class "item" :orientation "horizontal" :space-evenly false
-    (label :class "key" :text "${pair.key}" :halign "start" :width 0)
+    (label :class "key" :text "${pair.key}" :halign "start" :width 20)
     (label :class "separator" :text " → " :halign "center" :width 50)
     (label :class "value" :text "${pair.value}" :halign "start" :width 130)))
 
@@ -850,9 +888,12 @@
         (key-pair-work-col0 :pair `{"key": "b", "value": "Go to Browser"}`)
         (key-pair-work-col0 :pair `{"key": "s", "value": "Go to Slack"}`)
         (key-pair-work-col0 :pair `{"key": "p", "value": "Go to Povio"}`)
-        (key-pair-work-col0 :pair `{"key": "g", "value": "Google"}`)
+        (key-pair-work-col0 :pair `{"key": "c", "value": "Go to calendar"}`)
 )
       (box :orientation "vertical" :width 200
+        (key-pair-work-col1 :pair `{"key": "g", "value": "Go to gmail"}`)
+        (key-pair-work-col1 :pair `{"key": "y", "value": "Go to youtube"}`)
+        (key-pair-work-col1 :pair `{"key": "m", "value": "Go to meet"}`)
 )
       (box :orientation "vertical" :width 200
 )
