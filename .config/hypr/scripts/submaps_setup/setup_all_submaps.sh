@@ -16,7 +16,6 @@ for file in "${files[@]}"; do
 done
 
 source ~/.config/hypr/scripts/submaps_setup/source_all_submaps_hyprland_conf.sh
-source ~/.config/hypr/scripts/submaps_setup/generate_eww_indicators.sh
 
 
 

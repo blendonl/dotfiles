@@ -13,9 +13,9 @@ shift
 
 ALL_USED_KEYS=()
 key_pairs=$'[\n]'
-show_indicator="~/.config/hypr/scripts/eww/indicator.sh"
-indicators="~/.config/eww/indicators/$SUBMAP.json"
-exit_submap="eww close-all"
+show_indicator="~/.config/hypr/scripts/quickshell/indicator.sh"
+indicators="~/.config/quickshell/indicators/$SUBMAP.json"
+exit_submap="qs ipc call indicator hide"
 
 
 
@@ -68,9 +68,9 @@ add_key_pair() {
     fi
 
 
-    mkdir -p ~/.config/eww/indicators
+    mkdir -p ~/.config/quickshell/indicators
 
-    echo -e "$key_pairs" > ~/.config/eww/indicators/$SUBMAP.json
+    echo -e "$key_pairs" > ~/.config/quickshell/indicators/$SUBMAP.json
 
 }
 
