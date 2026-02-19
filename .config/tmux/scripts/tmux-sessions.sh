@@ -1,76 +1,68 @@
 #!/usr/bin/env bash
 
+SEARCH_PATHS=(
+    ~/.config/nvim
+    ~/dotfiles/.config
+    ~/work
+    ~/notes
+    ~/personal
+    /mnt/data/work
+    /mnt/data/personal/dotfiles/.config
+    /mnt/data/personal
+    /mnt/data/notes
+)
 
-if [[ $# -eq 1 ]]; then
-    selected=$1
-else
-    selected=$(perl -MFile::Find -le '
-  my @root_paths = @ARGV;
-  
-  # Print root paths first
-  for my $path (@root_paths) {
-    print $path if -d $path;
-  }
-  
-  sub wanted {
-    if (/^\../) {$File::Find::prune = 1; return}
+CONFIG_ROOTS=(
+    /mnt/data/personal/dotfiles/.config
+    /home/notpc/dotfiles/.config
+)
 
-    if(index($File::Find::name, "/mnt/data/personal/dotfiles/.config") == 0) {
-        my $relative_path = $File::Find::name;
-        $relative_path =~ s|^/mnt/data/personal/dotfiles/.config/||;  
+MONOREPO_SUBDIRS=(apps packages)
 
-        if ($relative_path !~ /\//) {
-            print $File::Find::name;  
-        }
-        return;
+find_sessions() {
+    local config_roots_arg
+    config_roots_arg=$(IFS=,; echo "${CONFIG_ROOTS[*]}")
 
-    }
+    local script_dir
+    script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-    if(index($File::Find::name, "/home/notpc/dotfiles/.config") == 0) {
-        my $relative_path = $File::Find::name;
-        $relative_path =~ s|^/home/notpc/dotfiles/.config/||;  
+    perl "$script_dir/find-sessions.pl" \
+        "$config_roots_arg" \
+        "$(IFS=,; echo "${MONOREPO_SUBDIRS[*]}")" \
+        "${SEARCH_PATHS[@]}"
+}
 
-        if ($relative_path !~ /\//) {
-            print $File::Find::name;  
-        }
-        return;
+resolve_session_name() {
+    local dir=$1
 
-    }
+    if [[ -d "$dir/.git" ]]; then
+        basename "$dir" | tr . _
+        return
+    fi
 
-    if (-d && -e "$_/.git") {
-       print $File::Find::name; $File::Find::prune = 1;
-    } 
+    local parent=$dir
+    while [[ "$parent" != "/" ]]; do
+        parent=$(dirname "$parent")
+        if [[ -d "$parent/.git" ]]; then
+            echo "$(basename "$parent")/$(basename "$dir")" | tr . _
+            return
+        fi
+    done
 
-    if (-d && -e "$_/apps") {
-        my $file = $File::Find::name;
-        my $folder = "$file/apps";
+    basename "$dir" | tr . _
+}
 
-        opendir(my $dh, "$folder") or die "Cant open dir: $folder";
-        while (my $entry = readdir($dh)) {
-            next if $entry =~ /^\.\.?$/;
-            my $path = "$folder/$entry";
-            print "$path" if -d $path;
-        }
+selected=${1:-$(find_sessions | fzf-tmux -p --no-extended)}
+[[ -z "$selected" ]] && exit 0
 
-    }
+selected_name=$(resolve_session_name "$selected")
 
-  }; find \&wanted, @ARGV' ~/.config/nvim ~/dotfiles/.config ~/work ~/notes ~/personal /mnt/data/work /mnt/data/personal/dotfiles/.config /mnt/data/personal /mnt/data/notes | fzf-tmux -p --no-extended)
-fi
-
-if [[ -z $selected ]]; then
-    exit 0
-fi
-
-selected_name=$(basename "$selected" | tr . _)
-tmux_running=$(pgrep tmux)
-
-if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
+if [[ -z "$TMUX" ]] && [[ -z "$(pgrep tmux)" ]]; then
     tmux new-session -s "$selected_name" -c "$selected"
     exit 0
 fi
 
-if ! tmux has-session -t="$selected_name" 2>/dev/null; then
-    tmux new-session -ds "$selected_name" -c "$selected"
-fi
+tmux has-session -t="$selected_name" 2>/dev/null \
+    || tmux new-session -ds "$selected_name" -c "$selected"
 
 tmux switch-client -t "$selected_name"
