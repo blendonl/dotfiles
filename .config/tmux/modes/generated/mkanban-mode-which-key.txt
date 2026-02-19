@@ -1,4 +1,0 @@
-a               Run Shell
-c               Run Shell
-n               Run Shell
-p               Run Shell
