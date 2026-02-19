@@ -1,0 +1,8 @@
+[
+ {"key":"a","value":"Close all notifications"},
+ {"key":"c","value":"Close current notification"},
+ {"key":"h","value":"Show last notification"},
+ {"key":"v","value":"Show all notifications"},
+ {"key":"p","value":"Pause/unpause notifications"},
+ {"key":"m","value":"Mute/unmute notifications"}
+]

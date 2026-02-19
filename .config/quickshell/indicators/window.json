@@ -1,0 +1,10 @@
+[
+ {"key":"F","value":"Fullscreen"},
+ {"key":"D","value":"Fake fullscreen"},
+ {"key":"C","value":"Kill active"},
+ {"key":"P","value":"Reserved Space"},
+ {"key":"M","value":"Move window"},
+ {"key":"R","value":"Resize window"},
+ {"key":"W","value":"Resize window"},
+ {"key":"Space","value":"Toggle split"}
+]

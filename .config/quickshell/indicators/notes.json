@@ -1,0 +1,7 @@
+[
+ {"key":"n","value":"New Task"},
+ {"key":"k","value":"Mkanban"},
+ {"key":"t","value":"Current Task"},
+ {"key":"c","value":"Checkout to Task"},
+ {"key":"d","value":"Daily Note"}
+]
