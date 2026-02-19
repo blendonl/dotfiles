@@ -1,0 +1,14 @@
+[
+ {"key":"return","value":"Open terminal"},
+ {"key":"m","value":"Monitor"},
+ {"key":"s","value":"Search"},
+ {"key":"c","value":"Click"},
+ {"key":"n","value":"Notes"},
+ {"key":"i","value":"Notifications"},
+ {"key":"p","value":"Power"},
+ {"key":"r","value":"Record"},
+ {"key":"g","value":"Go to"},
+ {"key":"w","value":"Window management"},
+ {"key":"TAB","value":"Move Workspace to Monitor"},
+ {"key":"space","value":"Go to previous workspace"}
+]

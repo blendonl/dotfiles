@@ -1,0 +1,8 @@
+[
+ {"key":"t","value":"Go to Terminal"},
+ {"key":"b","value":"Go to Browser"},
+ {"key":"d","value":"Go to Discord"},
+ {"key":"w","value":"Go to WhatsApp"},
+ {"key":"q","value":"Go to Quran"},
+ {"key":"g","value":"Google"}
+]

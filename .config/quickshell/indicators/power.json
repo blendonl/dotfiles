@@ -1,0 +1,8 @@
+[
+ {"key":"Return","value":"Exit Hyprland"},
+ {"key":"r","value":"Reboot"},
+ {"key":"s","value":"Suspend"},
+ {"key":"l","value":"Lock screen"},
+ {"key":"p","value":"Power off"},
+ {"key":"e","value":"Reload Setup"}
+]
