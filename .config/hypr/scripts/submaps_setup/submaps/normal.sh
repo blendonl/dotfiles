@@ -14,7 +14,7 @@ add_bind "r" "submap, record" "Record"
 add_bind "g" "submap, go" "Go to"
 add_bind "w" "submap, window" "Window management"      
 add_bind "TAB" "movecurrentworkspacetomonitor, +1" "Move Workspace to Monitor"
-add_bind "space" "focusworkspaceoncurrentmonitor, previous" "Go to previous workspace"
+add_bind "space" "focusworkspaceoncurrentmonitor, previous_per_monitor" "Go to previous workspace" "e"
 
 
 
