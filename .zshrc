@@ -156,3 +156,5 @@ export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
 
 # opencode
 export PATH=/home/notpc/.opencode/bin:$PATH
+
+export ENABLE_LSP_TOOL=1
