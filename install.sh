@@ -24,8 +24,6 @@ yay -S --needed  github-cli lazygit slack-desktop vencord posting
 curl -sS https://starship.rs/install.sh | sh
 
 
-git clone https://www.github.com/blendonl/dotfiles ~/dotfiles
-git clone https://www.github.com/blendonl/nvim ~/.config/nvim
 
 cd ~/dotfiles/ 
 stow .
