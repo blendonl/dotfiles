@@ -1,0 +1,10 @@
+local r = require('keybinds.submaps.registry')
+
+r.define('google', 'reset', function(bind)
+  bind('c', hl.dsp.focus({ workspace = 'name:calendar' }), { description = 'Calendar' })
+  bind('g', hl.dsp.focus({ workspace = 'name:gmail' }),    { description = 'Gmail' })
+  bind('y', hl.dsp.focus({ workspace = 'name:youtube' }),  { description = 'YouTube' })
+  bind('m', hl.dsp.focus({ workspace = 'name:meet' }),     { description = 'Meet' })
+  bind('escape', hl.dsp.submap('reset'),                   { description = 'Cancel' })
+  bind('catchall', hl.dsp.submap('reset'))
+end)
