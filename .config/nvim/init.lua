@@ -39,3 +39,8 @@ require("config.tasks")
 require("config.keybinds")
 require("config.commands")
 require("config.lsp")
+
+
+vim.o.foldmethod = "expr"
+vim.o.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+vim.o.foldlevel = 99

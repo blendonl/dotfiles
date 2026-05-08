@@ -162,3 +162,12 @@ map("n", "<leader>kk", function()
 	end
 	vim.cmd("SuperKanban open " .. full_path)
 end, { desc = "Line Diagnostics" })
+
+vim.api.nvim_create_autocmd("FileType", {
+  callback = function()
+    -- Check if a parser is available before starting
+    if vim.treesitter.get_parser(nil, nil, { error = false }) then
+      vim.treesitter.start()
+    end
+  end,
+})

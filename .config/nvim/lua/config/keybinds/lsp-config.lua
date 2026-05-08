@@ -1,54 +1,52 @@
--- Use LspAttach autocommand to only map the following keys
--- after the language server attaches to the current buffer
 vim.api.nvim_create_autocmd("LspAttach", {
 	group = vim.api.nvim_create_augroup("UserLspConfig", {}),
 	callback = function(ev)
-		-- Enable completion triggered by <c-x><c-o>
-		vim.bo[ev.buf].omnifunc = "v:lua.vim.lsp.omnifunc"
+		local buf = ev.buf
+		local map = function(mode, lhs, rhs, desc)
+			vim.keymap.set(mode, lhs, rhs, { buffer = buf, desc = desc })
+		end
 
-		-- Buffer local mappings.
-		-- See `:help vim.lsp.*` for documentation on any of the below functions
-		vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = ev.buf, desc = "hover" })
-		vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { buffer = ev.buf, desc = "go to declaration" })
-		vim.keymap.set("n", "gd", vim.lsp.buf.definition, { buffer = ev.buf, desc = "go to definition" })
-		vim.keymap.set("n", "gr", vim.lsp.buf.references, { buffer = ev.bu, desc = "go to refrence" })
-		vim.keymap.set("n", "gt", function()
+		vim.bo[buf].omnifunc = "v:lua.vim.lsp.omnifunc"
+
+		map("n", "K", vim.lsp.buf.hover, "hover")
+		map("n", "gD", vim.lsp.buf.declaration, "go to declaration")
+		map("n", "gd", vim.lsp.buf.definition, "go to definition")
+		map("n", "gr", vim.lsp.buf.references, "go to reference")
+		map("n", "gt", function()
 			require("trouble").toggle("lsp_references")
-		end, { buffer = ev.buf, desc = "go to trouble" })
-		vim.keymap.set("n", "gi", vim.lsp.buf.implementation, { buffer = ev.buf, desc = "go to implementation" })
-		vim.keymap.set("n", "gS", vim.lsp.buf.signature_help, { buffer = ev.buf, desc = "signature help" })
-		vim.keymap.set("n", "g[", vim.diagnostic.open_float, { buffer = ev.buf, desc = "list diagnostics float" })
+		end, "go to trouble")
+		map("n", "gi", vim.lsp.buf.implementation, "go to implementation")
+		map("n", "gS", vim.lsp.buf.signature_help, "signature help")
+		map("n", "g[", vim.diagnostic.open_float, "diagnostics float")
 
-		vim.keymap.set(
-			"n",
-			"<leader>wa",
-			vim.lsp.buf.add_workspace_folder,
-			{ buffer = ev.bu, desc = "add workspace folder" }
-		)
-		vim.keymap.set(
-			"n",
-			"<leader>wr",
-			vim.lsp.buf.remove_workspace_folder,
-			{ buffer = ev.bu, desc = "remove workspace folder" }
-		)
-		vim.keymap.set("n", "<leader>wl", function()
+		map("n", "<leader>wa", vim.lsp.buf.add_workspace_folder, "add workspace folder")
+		map("n", "<leader>wr", vim.lsp.buf.remove_workspace_folder, "remove workspace folder")
+		map("n", "<leader>wl", function()
 			print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
-		end, { buffer = ev.bu, desc = "list workspace folders" })
-		vim.keymap.set("n", "<leader>cD", vim.lsp.buf.type_definition, { buffer = ev.bu, desc = "type definition" })
-		vim.keymap.set("n", "<leader>cr", vim.lsp.buf.rename, { buffer = ev.bu, desc = "rename" })
+		end, "list workspace folders")
 
-		vim.keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, { buffer = ev.bu, desc = "code action" })
-		vim.keymap.set("n", "<leader>cf", function()
+		map("n", "<leader>cD", vim.lsp.buf.type_definition, "type definition")
+		map("n", "<leader>cr", vim.lsp.buf.rename, "rename")
+		map({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, "code action")
+		map("n", "<leader>cf", function()
 			vim.lsp.buf.format({ async = true })
-		end, { buffer = ev.bu, desc = "format code" })
+		end, "format code")
 
-		vim.api.nvim_set_keymap('n', '<space>xw', '', {
-			noremap = true,
-			callback = function()
-				for _, client in ipairs(vim.lsp.buf_get_clients()) do
-					require("workspace-diagnostics").populate_workspace_diagnostics(client, 0)
-				end
+		map("n", "<space>xw", function()
+			for _, client in ipairs(vim.lsp.get_clients({ bufnr = buf })) do
+				require("workspace-diagnostics").populate_workspace_diagnostics(client, buf)
 			end
-		})
+		end, "populate workspace diagnostics")
+
+		local client = vim.lsp.get_client_by_id(ev.data.client_id)
+		if client and client:supports_method("textDocument/inlayHint") then
+			vim.lsp.inlay_hint.enable(true, { bufnr = buf })
+			map("n", "<leader>ch", function()
+				vim.lsp.inlay_hint.enable(
+					not vim.lsp.inlay_hint.is_enabled({ bufnr = buf }),
+					{ bufnr = buf }
+				)
+			end, "toggle inlay hints")
+		end
 	end,
 })
