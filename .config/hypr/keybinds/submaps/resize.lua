@@ -1,0 +1,10 @@
+local r = require('keybinds.submaps.registry')
+
+r.define('resize', 'reset', function(bind)
+  bind('h', hl.dsp.window.resize({ x = -10, y = 0 }),  { description = 'Shrink width' })
+  bind('j', hl.dsp.window.resize({ x = 0,   y = 10 }), { description = 'Grow height' })
+  bind('k', hl.dsp.window.resize({ x = 0,   y = -10 }),{ description = 'Shrink height' })
+  bind('l', hl.dsp.window.resize({ x = 10,  y = 0 }),  { description = 'Grow width' })
+  bind('escape', hl.dsp.submap('reset'),               { description = 'Cancel' })
+  bind('catchall', hl.dsp.submap('reset'))
+end)
