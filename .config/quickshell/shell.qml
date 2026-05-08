@@ -13,11 +13,10 @@ ShellRoot {
     IpcHandler {
         target: "indicator"
 
-        function showSubmap(submap: string): void {
-            var filePath = Quickshell.env("HOME") + "/.config/quickshell/indicators/" + submap + ".json";
-            fileReader.path = filePath;
-            fileReader.reload();
+        function show(submap: string, payloadPath: string): void {
             root.currentSubmap = submap;
+            payloadFile.path = payloadPath;
+            payloadFile.reload();
         }
 
         function hide(): void {
@@ -26,20 +25,17 @@ ShellRoot {
     }
 
     FileView {
-        id: fileReader
-        path: ""
-
+        id: payloadFile
         onLoaded: {
             try {
-                root.indicatorData = JSON.parse(fileReader.text());
+                root.indicatorData = JSON.parse(payloadFile.text());
                 root.panelVisible = true;
             } catch (e) {
-                console.error("Failed to parse indicator JSON:", e);
+                console.error("Failed to parse indicator payload:", e);
             }
         }
-
-        onLoadFailed: function(error) {
-            console.error("Failed to load indicator file:", error);
+        onLoadFailed: function(err) {
+            console.error("Failed to read indicator payload:", err);
         }
     }
 
