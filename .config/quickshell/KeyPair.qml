@@ -10,7 +10,7 @@ Row {
         text: item.key
         color: "#ffffff"
         font.family: "Fira Code"
-        font.pixelSize: 22
+        font.pixelSize: 14
         width: keyWidth
         horizontalAlignment: Text.AlignLeft
     }
@@ -19,13 +19,13 @@ Row {
         text: " → "
         color: "#ffffff"
         font.family: "Fira Code"
-        font.pixelSize: 22
+        font.pixelSize: 14
     }
 
     Text {
         text: item.value
         color: "#ffffff"
         font.family: "Fira Code"
-        font.pixelSize: 22
+        font.pixelSize: 14
     }
 }
