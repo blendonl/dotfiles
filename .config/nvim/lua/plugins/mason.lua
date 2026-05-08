@@ -1,6 +1,5 @@
 return {
 	{
-
 		"williamboman/mason.nvim",
 		cmd = "Mason",
 		build = ":MasonUpdate",
@@ -9,14 +8,16 @@ return {
 	"neovim/nvim-lspconfig",
 	{
 		"williamboman/mason-lspconfig.nvim",
-		config = function()
-			local mason_lspconfig = require("mason-lspconfig")
-			mason_lspconfig.setup({
-				automatic_enable = true,
-				ensure_installed = {
-					"lua_ls",
-				},
-			})
-		end,
+		opts = {
+			-- vim.lsp.enable(...) in lua/config/lsp.lua is the source of truth
+			automatic_enable = false,
+			ensure_installed = {
+				"lua_ls",
+				"vtsls",
+				"cssls",
+				"html",
+				"jsonls",
+			},
+		},
 	},
 }
