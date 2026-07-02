@@ -2,6 +2,7 @@
 --    `:help lazy.nvim.txt` for more info
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
+vim.opt.termguicolors = true -- Must be set early, before plugins load
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 
