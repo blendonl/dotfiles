@@ -9,8 +9,8 @@ local M = { submaps = {} }
 --- all Lua binds share the `__lua` handler), so we opt in per-bind instead.
 function M.leaf(dispatcher)
   return function()
-    dispatcher()
-    hl.dsp.submap('reset')()
+    hl.dispatch(dispatcher)
+    hl.dispatch(hl.dsp.submap('reset'))
   end
 end
 
@@ -23,8 +23,8 @@ end
 
 --- Define a submap and its bindings.
 --- @param name string
---- @param mode_or_body string|fun(bind: fun(keys:string, dispatcher:function, opts?:HL.BindOptions): HL.Keybind)
---- @param body? fun(bind: fun(keys:string, dispatcher:function, opts?:HL.BindOptions): HL.Keybind)
+--- @param mode_or_body string|fun(bind: fun(keys:string, dispatcher:function|HL.Dispatcher, opts?:HL.BindOptions): HL.Keybind)
+--- @param body? fun(bind: fun(keys:string, dispatcher:function|HL.Dispatcher, opts?:HL.BindOptions): HL.Keybind)
 function M.define(name, mode_or_body, body)
   local mode
   if type(mode_or_body) == 'function' then

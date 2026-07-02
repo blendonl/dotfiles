@@ -1,4 +1,4 @@
-local r = require('keybinds.submaps.registry')
+local r = require('keybinds.submaps.core.registry')
 
 local NEW_NOTE = "EDITOR='neovide --wayland_app_id=new-to-do' mkanban task create"
 
@@ -29,7 +29,7 @@ fi
 neovide "$file"
 ]]
 
-local reserved_space = require('keybinds.submaps.reserved_space')
+local reserved_space = require('keybinds.submaps.core.reserved_space')
 
 local function current_task()
   hl.dsp.exec_cmd(CURRENT_TASK)()
@@ -37,11 +37,11 @@ local function current_task()
 end
 
 r.define('notes', 'reset', function(bind)
-  bind('n', hl.dsp.exec_cmd(NEW_NOTE),         { description = 'New note' })
-  bind('k', hl.dsp.exec_cmd(KANBAN_BOARD),     { description = 'Kanban board' })
-  bind('t', current_task,                      { description = 'Current task' })
-  bind('c', hl.dsp.exec_cmd(CHECKOUT_TO_TASKS),{ description = 'Checkout to tasks' })
-  bind('d', hl.dsp.exec_cmd(DAILY_NOTE),       { description = 'Daily note' })
-  bind('escape', hl.dsp.submap('reset'),       { description = 'Cancel' })
+  bind('n', hl.dsp.exec_cmd(NEW_NOTE), { description = 'New note' })
+  bind('k', hl.dsp.exec_cmd(KANBAN_BOARD), { description = 'Kanban board' })
+  bind('t', current_task, { description = 'Current task' })
+  bind('c', hl.dsp.exec_cmd(CHECKOUT_TO_TASKS), { description = 'Checkout to tasks' })
+  bind('d', hl.dsp.exec_cmd(DAILY_NOTE), { description = 'Daily note' })
+  bind('escape', hl.dsp.submap('reset'), { description = 'Cancel' })
   bind('catchall', hl.dsp.submap('reset'))
 end)

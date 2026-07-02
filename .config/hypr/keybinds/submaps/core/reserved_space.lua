@@ -1,4 +1,4 @@
-local r = require('keybinds.submaps.registry')
+local r = require('keybinds.submaps.core.registry')
 
 local RES_PX = 600
 
@@ -10,10 +10,6 @@ local function add_reserved_space()
   local move         = math.floor(actual_width - RES_PX)
   local pct          = math.floor(RES_PX * 100 / actual_width)
 
-  hl.notification.create({
-    output = '',
-    description = 'test',
-  })
 
   hl.monitor({ output = m.name, reserved = { right = RES_PX } })
 

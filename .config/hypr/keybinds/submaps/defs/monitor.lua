@@ -1,4 +1,4 @@
-local r = require('keybinds.submaps.registry')
+local r = require('keybinds.submaps.core.registry')
 
 r.define('monitor', 'reset', function(bind)
   bind('F', hl.dsp.focus({ monitor = '+1' }), { description = 'Focus next monitor' })

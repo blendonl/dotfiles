@@ -1,4 +1,4 @@
-local registry = require('keybinds.submaps.registry')
+local registry = require('keybinds.submaps.core.registry')
 
 local function json_string(s)
   s = s:gsub('\\', '\\\\')
@@ -9,9 +9,6 @@ local function json_string(s)
   return '"' .. s .. '"'
 end
 
-local function shell_quote(s)
-  return "'" .. s:gsub("'", [['\'']]) .. "'"
-end
 
 local function encode_binds(binds)
   local parts = {}
@@ -33,12 +30,12 @@ end
 
 hl.on("keybinds.submap", function(name)
   if not name or name == "" or name == "reset" then
-    hl.dsp.exec_cmd("qs ipc call -- indicator hide")()
+    hl.dispatch(hl.dsp.exec_cmd("qs ipc call indicator hide"))
     return
   end
 
   local binds = registry.submaps[name] or {}
   if not write_payload(encode_binds(binds)) then return end
 
-  hl.dsp.exec_cmd("qs ipc call -- indicator show " .. name .. " " .. PAYLOAD_PATH)()
+  hl.dispatch(hl.dsp.exec_cmd("qs ipc call indicator open " .. name .. " " .. PAYLOAD_PATH))
 end)
