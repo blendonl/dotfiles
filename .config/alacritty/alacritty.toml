@@ -26,6 +26,6 @@ import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
 
 [terminal]
 
-[terminal.shell] 
-program = "tmux"
+# [terminal.shell] 
+# program = "tmux"
 
