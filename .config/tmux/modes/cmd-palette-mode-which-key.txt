@@ -1,0 +1,4 @@
+r: run command (foreground)
+b: run command (background)
+l: view last background output
+Esc: back
