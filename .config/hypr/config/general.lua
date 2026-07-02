@@ -1,4 +1,3 @@
-hl.dsp.global('input');
 hl.config({
 
   input = {
@@ -6,9 +5,9 @@ hl.config({
     numlock_by_default = true,
     repeat_delay = 250,
     repeat_rate = 35,
-    sensitivity = 1.0,
+    sensitivity = 0,
     accel_profile = 'flat',
-    force_no_accel = 1,
+    force_no_accel = true,
 
     left_handed = true,
 

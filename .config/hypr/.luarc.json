@@ -5,8 +5,8 @@
     ]
   },
   "diagnostics": {
-    "globals": ["hl"]
+    "globals": [
+      "hl"
+    ]
   }
 }
-
-
