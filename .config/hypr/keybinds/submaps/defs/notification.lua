@@ -1,0 +1,12 @@
+local r = require('keybinds.submaps.core.registry')
+
+r.define('notification', 'reset', function(bind)
+  bind('a', hl.dsp.exec_cmd('dunstctl close-all'), { description = 'Close all' })
+  bind('c', hl.dsp.exec_cmd('dunstctl close'), { description = 'Close current' })
+  bind('h', hl.dsp.exec_cmd('dunstctl history-pop'), { description = 'Show last' })
+  bind('v', hl.dsp.exec_cmd('dunstctl history-pop-all'), { description = 'Show all history' })
+  bind('p', hl.dsp.exec_cmd('dunstctl set-paused toggle'), { description = 'Toggle pause' })
+  bind('m', hl.dsp.exec_cmd('dunstctl set-mute toggle'), { description = 'Toggle mute' })
+  bind('escape', hl.dsp.submap('reset'), { description = 'Cancel' })
+  bind('catchall', hl.dsp.submap('reset'))
+end)

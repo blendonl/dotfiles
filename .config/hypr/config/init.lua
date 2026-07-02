@@ -1,0 +1,5 @@
+require('config.env')
+require('config.general')
+require('config.monitor')
+require('config.window-rules')
+require('config.startup')
