@@ -19,9 +19,12 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     focusable: true
 
-    // ── parsed agenda data ──
-    property var sections: []           // [{label, dateKey, isToday, isOverdue, tasks: [...], blocks: [...]}]
-    property var flatItems: []          // [{sectionIdx, kind: "task"|"block", dataIdx, data}]
+    // ── state ──
+    // sections: [{label, dateKey, isToday, blocks: [...], orphanTasks: [...]}]
+    // blocks: [{kind:"block", scheduledAt, title, status, durationMin, projectSlug, taskOccurrences:[...]}]
+    // orphanTasks: [{kind:"orphan", ...full task dto}]
+    property var sections: []
+    property var flatItems: []       // [{sectionIdx, kind:"block"|"taskInBlock"|"orphan", blockData, taskData, parentBlockTitle}]
     property int selectedFlatIndex: 0
     property bool legendVisible: false
     property string searchText: ""
@@ -30,10 +33,7 @@ PanelWindow {
     property string prevAnchorDate: ""
     property string nextAnchorDate: ""
     property string weekLabel: ""
-
-    // tracks async loads; merge when both are done
-    property bool tasksLoaded: false
-    property bool blocksLoaded: false
+    property var navigation: ({})       // full navigation object from API
 
     // ── helpers ──
     function priColor(p) {
@@ -91,11 +91,11 @@ PanelWindow {
         }
     }
     function formatDue(d) {
-        if (!d) return "";
+        if (!d) return "—";
         return d.substring(0, 10);
     }
     function formatEst(m) {
-        if (!m && m !== 0) return "";
+        if (!m && m !== 0) return "—";
         if (m >= 60) {
             var h = Math.floor(m / 60);
             var rem = m % 60;
@@ -104,247 +104,173 @@ PanelWindow {
         }
         return m + "m";
     }
-    function sectionLabel(section) {
-        if (section.isOverdue) return "Overdue";
-        if (section.isToday) return "Today — " + section.dateLabel;
-        if (section.isTomorrow) return "Tomorrow — " + section.dateLabel;
-        if (section.dateKey === "") return "Unscheduled";
-        return section.dateLabel;
-    }
-    function sectionHeaderColor(section) {
-        if (section.isOverdue) return "#ff6b6b";
-        if (section.isToday) return "#4ecdc4";
-        return "#82aaff";
-    }
-    // block-specific colors
     function blockColor() { return "#79C0FF"; }
     function blockBg() { return "#0a1018"; }
     function blockBorder() { return "#1a2a3a"; }
 
+    function sectionLabel(section) {
+        if (section.isToday) return "Today — " + section.dateLabel;
+        return section.dateLabel;
+    }
+    function sectionHeaderColor(section) {
+        if (section.isToday) return "#4ecdc4";
+        return "#82aaff";
+    }
+
     // ── rebuild flat list from sections ──
     function rebuildFlatItems() {
-        flatItems = [];
+        var items = [];
         for (var si = 0; si < sections.length; si++) {
             var sec = sections[si];
             // blocks first in each section
             for (var bi = 0; bi < sec.blocks.length; bi++) {
-                flatItems.push({ sectionIdx: si, kind: "block", dataIdx: bi, data: sec.blocks[bi] });
+                items.push({
+                    sectionIdx: si,
+                    kind: "block",
+                    dataIdx: bi,
+                    data: sec.blocks[bi]
+                });
+                // nested task occurrences inside this block
+                var blk = sec.blocks[bi];
+                var tasks = blk.taskOccurrences || [];
+                for (var ti = 0; ti < tasks.length; ti++) {
+                    items.push({
+                        sectionIdx: si,
+                        kind: "taskInBlock",
+                        dataIdx: ti,
+                        data: tasks[ti],
+                        parentBlockTitle: blk.title || "(untitled)",
+                        parentBlockProject: blk.project || null
+                    });
+                }
             }
-            for (var ti = 0; ti < sec.tasks.length; ti++) {
-                flatItems.push({ sectionIdx: si, kind: "task", dataIdx: ti, data: sec.tasks[ti] });
+            // orphan tasks (no block) at the end of the section
+            for (var oi = 0; oi < sec.orphanTasks.length; oi++) {
+                items.push({
+                    sectionIdx: si,
+                    kind: "orphan",
+                    dataIdx: oi,
+                    data: sec.orphanTasks[oi]
+                });
             }
         }
+        flatItems = items;
     }
 
     function totalItemCount() {
         var count = 0;
         for (var i = 0; i < sections.length; i++) {
-            count += sections[i].tasks.length + sections[i].blocks.length;
+            var sec = sections[i];
+            count += sec.blocks.length + sec.orphanTasks.length;
+            for (var bi = 0; bi < sec.blocks.length; bi++) {
+                count += (sec.blocks[bi].taskOccurrences || []).length;
+            }
         }
         return count;
     }
 
-    function sectionCount() {
-        return sections.length;
-    }
+    function sectionCount() { return sections.length; }
 
-    function currentSectionLabel() {
-        if (flatItems.length === 0) return "";
-        var item = flatItems[selectedFlatIndex];
-        if (!item) return "";
-        return sectionLabel(sections[item.sectionIdx]);
-    }
-
-    // ── load agenda data (tasks + blocks) ──
+    // ── load agenda data ──
     function loadAgenda() {
-        tasksLoaded = false;
-        blocksLoaded = false;
         sections = [];
         flatItems = [];
 
-        // ── load tasks ──
-        var taskCmd = "/usr/sbin/cadence task list --output json";
-
-        // pipe through jq to include only active (non-DONE) tasks
-        taskCmd += " | jq '[.[] | select(.status != \"DONE\" and .status != \"FAILED\")]'";
-
-        // optional title search filter
+        var cmd = "/usr/sbin/cadence agenda view --mode week --output json";
+        if (anchorDate) {
+            cmd += " --date " + anchorDate;
+        }
         if (searchText) {
-            var escaped = searchText.replace(/"/g, '\\"');
-            taskCmd += " | jq '[.[] | select(.title | test(\"" + escaped + "\"; \"i\"))]'";
+            // pass search to backend?
         }
+        cmd += " > /tmp/cadence-agenda-data.json";
 
-        taskCmd += " > /tmp/cadence-agenda-tasks.json";
-
-        tasksFile.path = "";
-        tasksProcess.command = ["bash", "-c", taskCmd];
-        tasksProcess.running = true;
-
-        // ── load blocks ──
-        // Fetch blocks for today through +90 days.  Overdue blocks won't be
-        // caught here, but a block scheduled in the past that's still active
-        // is unusual — the auto-transition handles status changes.
-        var today = new Date();
-        var todayStr = today.toISOString().substring(0, 10);
-        var farFuture = new Date(today);
-        farFuture.setDate(farFuture.getDate() + 90);
-        var farFutureStr = farFuture.toISOString().substring(0, 10);
-
-        var blockCmd = "/usr/sbin/cadence block list-occurrences --from " + todayStr + " --to " + farFutureStr + " --output json";
-        // Exclude ended/skipped/cancelled blocks.
-        blockCmd += " | jq '[.[] | select(.status != \"ENDED\" and .status != \"SKIPPED\" and .status != \"CANCELLED\")]'";
-        blockCmd += " > /tmp/cadence-agenda-blocks.json";
-
-        blocksFile.path = "";
-        blocksProcess.command = ["bash", "-c", blockCmd];
-        blocksProcess.running = true;
+        agendaFile.path = "";
+        agendaProcess.command = ["bash", "-c", cmd];
+        agendaProcess.running = true;
     }
 
-    // ── parse & group ──
-    function tryMerge() {
-        if (!tasksLoaded || !blocksLoaded) return;
+    // ── parse week view response ──
+    function parseAgendaData(jsonData) {
+        try {
+            var view = JSON.parse(jsonData);
 
-        // The merge always happens after both are loaded.
-        // parseAndGroupTasks has already set up sections from tasks;
-        // we need to merge blocks into the existing sections.
-        // But since parseAndGroupTasks clears sections first, we need to
-        // handle this carefully.  We store the raw data and merge when both
-        // arrive.
-    }
-
-    // We store raw arrays until both loads complete.
-    property var rawTasks: []
-    property var rawBlocks: []
-
-    function onTasksArrived(tasks) {
-        rawTasks = tasks;
-        if (blocksLoaded) {
-            parseAndGroupAll(rawTasks, rawBlocks);
-        }
-    }
-
-    function onBlocksArrived(blocks) {
-        rawBlocks = blocks;
-        if (tasksLoaded) {
-            parseAndGroupAll(rawTasks, rawBlocks);
-        }
-    }
-
-    function parseAndGroupAll(tasks, blocks) {
-        var today = new Date();
-        var todayStr = today.toISOString().substring(0, 10);
-        var tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        var tomorrowStr = tomorrow.toISOString().substring(0, 10);
-
-        // group tasks by date buckets
-        var overdueTasks = [];
-        var todayTasks = [];
-        var tomorrowTasks = [];
-        var futureTasks = {};  // dateKey -> tasks
-        var unscheduledTasks = [];
-
-        for (var i = 0; i < tasks.length; i++) {
-            var task = tasks[i];
-            var due = task.dueAt ? task.dueAt.substring(0, 10) : "";
-
-            if (!due) {
-                unscheduledTasks.push(task);
-            } else if (due < todayStr) {
-                overdueTasks.push(task);
-            } else if (due === todayStr) {
-                todayTasks.push(task);
-            } else if (due === tomorrowStr) {
-                tomorrowTasks.push(task);
-            } else {
-                if (!futureTasks[due]) futureTasks[due] = [];
-                futureTasks[due].push(task);
+            // extract navigation
+            if (view.navigation) {
+                anchorDate = view.navigation.anchorDate || "";
+                prevAnchorDate = view.navigation.previousAnchorDate || "";
+                nextAnchorDate = view.navigation.nextAnchorDate || "";
             }
-        }
+            weekLabel = view.label || "";
 
-        // group blocks by scheduled date
-        var overdueBlocks = [];
-        var todayBlocks = [];
-        var tomorrowBlocks = [];
-        var futureBlocks = {};  // dateKey -> blocks
-        var unscheduledBlocks = [];
+            var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-        for (var j = 0; j < blocks.length; j++) {
-            var blk = blocks[j];
-            var sched = blk.scheduledAt ? blk.scheduledAt.substring(0, 10) : "";
-
-            if (!sched) {
-                unscheduledBlocks.push(blk);
-            } else if (sched < todayStr) {
-                overdueBlocks.push(blk);
-            } else if (sched === todayStr) {
-                todayBlocks.push(blk);
-            } else if (sched === tomorrowStr) {
-                tomorrowBlocks.push(blk);
-            } else {
-                if (!futureBlocks[sched]) futureBlocks[sched] = [];
-                futureBlocks[sched].push(blk);
+            function formatDateLabel(dateKey) {
+                var parts = dateKey.split("-");
+                var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                var dow = dayNames[d.getDay()];
+                var mon = monthNames[d.getMonth()];
+                var day = d.getDate();
+                return dow + " " + mon + " " + day;
             }
-        }
 
-        var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            var days = view.days || [];
+            var newSections = [];
+            for (var di = 0; di < days.length; di++) {
+                var day = days[di];
 
-        function formatDateLabel(dateKey) {
-            var parts = dateKey.split("-");
-            var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            var dow = dayNames[d.getDay()];
-            var mon = monthNames[d.getMonth()];
-            var day = d.getDate();
-            return dow + " " + mon + " " + day;
-        }
+                // flatten timedSchedules into blocks
+                var blocks = [];
+                var timed = day.timedSchedules || [];
+                for (var ti = 0; ti < timed.length; ti++) {
+                    var sched = timed[ti].schedule;
+                    blocks.push({
+                        id: sched.id,
+                        blockId: sched.blockId,
+                        scheduledAt: sched.scheduledAt,
+                        durationMinutes: sched.durationMinutes,
+                        status: sched.status,
+                        startedAt: sched.startedAt,
+                        title: sched.title,
+                        project: sched.project,
+                        taskOccurrences: sched.taskOccurrences || []
+                    });
+                }
 
-        var newSections = [];
+                var orphans = day.orphanTasks || [];
 
-        // Overdue
-        if (overdueBlocks.length > 0 || overdueTasks.length > 0) {
-            newSections.push({ label: "Overdue", dateKey: "", dateLabel: "", isOverdue: true, isToday: false, isTomorrow: false, blocks: overdueBlocks, tasks: overdueTasks });
-        }
-        // Today
-        if (todayBlocks.length > 0 || todayTasks.length > 0) {
-            newSections.push({ label: "Today", dateKey: todayStr, dateLabel: formatDateLabel(todayStr), isOverdue: false, isToday: true, isTomorrow: false, blocks: todayBlocks, tasks: todayTasks });
-        }
-        // Tomorrow
-        if (tomorrowBlocks.length > 0 || tomorrowTasks.length > 0) {
-            newSections.push({ label: "Tomorrow", dateKey: tomorrowStr, dateLabel: formatDateLabel(tomorrowStr), isOverdue: false, isToday: false, isTomorrow: true, blocks: tomorrowBlocks, tasks: tomorrowTasks });
-        }
+                if (blocks.length === 0 && orphans.length === 0) continue;
 
-        // future dates sorted — collect all unique date keys from both
-        var allFutureDates = {};
-        for (var dk in futureTasks) { allFutureDates[dk] = true; }
-        for (var dk2 in futureBlocks) { allFutureDates[dk2] = true; }
-        var futureDates = Object.keys(allFutureDates).sort();
-        for (var fi = 0; fi < futureDates.length; fi++) {
-            var fdk = futureDates[fi];
-            var fb = futureBlocks[fdk] || [];
-            var ft = futureTasks[fdk] || [];
-            newSections.push({ label: formatDateLabel(fdk), dateKey: fdk, dateLabel: formatDateLabel(fdk), isOverdue: false, isToday: false, isTomorrow: false, blocks: fb, tasks: ft });
-        }
+                newSections.push({
+                    label: formatDateLabel(day.dateKey),
+                    dateKey: day.dateKey,
+                    dateLabel: formatDateLabel(day.dateKey),
+                    isToday: day.isToday,
+                    blocks: blocks,
+                    orphanTasks: orphans
+                });
+            }
 
-        // Unscheduled
-        if (unscheduledBlocks.length > 0 || unscheduledTasks.length > 0) {
-            newSections.push({ label: "Unscheduled", dateKey: "", dateLabel: "", isOverdue: false, isToday: false, isTomorrow: false, blocks: unscheduledBlocks, tasks: unscheduledTasks });
+            sections = newSections;
+            rebuildFlatItems();
+            selectedFlatIndex = 0;
+        } catch (e) {
+            console.error("Failed to parse agenda data:", e);
         }
-
-        sections = newSections;
-        rebuildFlatItems();
-        selectedFlatIndex = 0;
     }
 
     // ── navigation ──
     function moveSelectionDown() {
         if (flatItems.length > 0) {
             selectedFlatIndex = Math.min(selectedFlatIndex + 1, flatItems.length - 1);
+            agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
         }
     }
     function moveSelectionUp() {
         selectedFlatIndex = Math.max(selectedFlatIndex - 1, 0);
+        agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
     }
     function jumpToNextSection() {
         if (flatItems.length === 0) return;
@@ -352,6 +278,7 @@ PanelWindow {
         for (var i = selectedFlatIndex + 1; i < flatItems.length; i++) {
             if (flatItems[i].sectionIdx !== currentSection) {
                 selectedFlatIndex = i;
+                agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
                 return;
             }
         }
@@ -361,6 +288,7 @@ PanelWindow {
         var currentSection = flatItems[selectedFlatIndex].sectionIdx;
         if (currentSection === 0) {
             selectedFlatIndex = 0;
+            agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
             return;
         }
         for (var i = selectedFlatIndex - 1; i >= 0; i--) {
@@ -369,6 +297,7 @@ PanelWindow {
                 for (var j = 0; j <= i; j++) {
                     if (flatItems[j].sectionIdx === targetSection) {
                         selectedFlatIndex = j;
+                        agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
                         return;
                     }
                 }
@@ -381,12 +310,13 @@ PanelWindow {
             var sec = sections[flatItems[i].sectionIdx];
             if (sec.isToday) {
                 selectedFlatIndex = i;
+                agendaList.positionViewAtIndex(selectedFlatIndex, ListView.Contain);
                 return;
             }
         }
     }
 
-    // ── date navigation (week view) ──
+    // ── week navigation ──
     function navigateWeekPrev() {
         if (prevAnchorDate) {
             anchorDate = prevAnchorDate;
@@ -404,87 +334,89 @@ PanelWindow {
         loadAgenda();
     }
 
-    // ── task process ──
+    // ── agenda data process ──
     Process {
-        id: tasksProcess
+        id: agendaProcess
         onExited: function(exitCode, exitStatus) {
             if (exitCode === 0) {
-                tasksFile.path = "/tmp/cadence-agenda-tasks.json";
+                agendaFile.path = "/tmp/cadence-agenda-data.json";
             } else {
-                tasksLoaded = true;
-                onTasksArrived([]);
+                sections = [];
+                flatItems = [];
+                weekLabel = "Error loading";
             }
         }
     }
 
     FileView {
-        id: tasksFile
+        id: agendaFile
         path: ""
         onLoaded: {
             try {
-                var tasks = JSON.parse(tasksFile.text());
-                tasksLoaded = true;
-                onTasksArrived(tasks);
+                parseAgendaData(agendaFile.text());
             } catch (e) {
-                console.error("Failed to parse agenda tasks:", e);
-                tasksLoaded = true;
-                onTasksArrived([]);
+                console.error("Failed to read agenda data:", e);
             }
         }
         onLoadFailed: function(err) {
             if (path === "") return;
-            console.error("Failed to read agenda tasks:", err);
-            tasksLoaded = true;
-            onTasksArrived([]);
+            console.error("Failed to read agenda data:", err);
         }
     }
 
-    // ── block process ──
+    // ── toggle task done ──
+    function toggleTaskDone(item) {
+        var slug = null;
+        var projectSlug = null;
+        var currentStatus = null;
+
+        if (item.kind === "taskInBlock") {
+            var t = item.data.task;
+            if (!t) return;
+            slug = t.slug || t.id;
+            currentStatus = t.status;
+            if (item.parentBlockProject && item.parentBlockProject.slug) {
+                projectSlug = item.parentBlockProject.slug;
+            }
+        } else if (item.kind === "orphan") {
+            slug = item.data.slug || item.data.id;
+            currentStatus = item.data.status;
+        } else {
+            return; // blocks not toggleable yet
+        }
+
+        if (!slug || !currentStatus) return;
+
+        var newStatus = (currentStatus === "DONE") ? "TODO" : "DONE";
+        var args = ["/usr/sbin/cadence", "task", "status", slug, newStatus, "--quiet"];
+        if (projectSlug) {
+            args.push("--project");
+            args.push(projectSlug);
+        }
+        taskToggleProcess.command = args;
+        taskToggleProcess.running = true;
+    }
+
     Process {
-        id: blocksProcess
+        id: taskToggleProcess
+        running: false
         onExited: function(exitCode, exitStatus) {
-            if (exitCode === 0) {
-                blocksFile.path = "/tmp/cadence-agenda-blocks.json";
-            } else {
-                blocksLoaded = true;
-                onBlocksArrived([]);
-            }
+            taskToggleProcess.command = [];
+            loadAgenda();
         }
     }
 
-    FileView {
-        id: blocksFile
-        path: ""
-        onLoaded: {
-            try {
-                var blocks = JSON.parse(blocksFile.text());
-                blocksLoaded = true;
-                onBlocksArrived(blocks);
-            } catch (e) {
-                console.error("Failed to parse agenda blocks:", e);
-                blocksLoaded = true;
-                onBlocksArrived([]);
-            }
-        }
-        onLoadFailed: function(err) {
-            if (path === "") return;
-            console.error("Failed to read agenda blocks:", err);
-            blocksLoaded = true;
-            onBlocksArrived([]);
-        }
-    }
-
-    // ── backdrop click to dismiss ──
+    // ── backdrop ──
     MouseArea {
         anchors.fill: parent
         onClicked: Quickshell.execDetached(["qs", "ipc", "call", "agenda", "hide"])
     }
 
-    // ── centered popup ──
+    // ── popup ──
     Rectangle {
         id: popup
         anchors.centerIn: parent
-        width: 740
+        width: 780
         height: Math.min(popupContent.implicitHeight + 36, root.height - 60)
         color: "#000000"
         border { color: "#262626"; width: 1 }
@@ -492,7 +424,6 @@ PanelWindow {
         clip: true
         focus: true
 
-        // swallow clicks
         MouseArea { anchors.fill: parent }
 
         Column {
@@ -519,6 +450,14 @@ PanelWindow {
                     color: "#4ecdc4"
                     font.family: "Fira Code"
                     font.pixelSize: 11
+                }
+                Item { width: 1; height: 1 }
+                Text {
+                    text: "[ ] to change week"
+                    color: "#335566"
+                    font.family: "Fira Code"
+                    font.pixelSize: 10
+                    visible: prevAnchorDate || nextAnchorDate
                 }
             }
 
@@ -554,9 +493,7 @@ PanelWindow {
                         visible: !searchInput.text && !searchInput.activeFocus
                     }
 
-                    onTextChanged: {
-                        searchText = text;
-                    }
+                    onTextChanged: { searchText = text; }
 
                     Keys.onPressed: function(event) {
                         if (event.key === Qt.Key_Escape) {
@@ -580,7 +517,6 @@ PanelWindow {
                 }
             }
 
-            // spacing after search/header
             Item { height: searchVisible ? 6 : 10; width: 1 }
 
             // ── column headers ──
@@ -594,48 +530,14 @@ PanelWindow {
                     anchors { left: parent.left; top: parent.top; topMargin: 4 }
                     spacing: 0
 
-                    Text {
-                        text: "Kind"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 44
-                    }
-                    Text {
-                        text: "Title"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 276
-                    }
-                    Text {
-                        text: "Status"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 100
-                    }
-                    Text {
-                        text: "Priority"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 82
-                    }
-                    Text {
-                        text: "Due"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 82
-                    }
-                    Text {
-                        text: "Est/Dur"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 10
-                        width: 56
-                    }
+                    Text { text: "";          color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 34 }
+                    Text { text: "✓";         color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 24 }
+                    Text { text: "Block/Task";color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 262 }
+                    Text { text: "Status";    color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 100 }
+                    Text { text: "Priority";  color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 82 }
+                    Text { text: "Due";       color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 82 }
+                    Text { text: "Est/Dur";   color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 56 }
+                    Text { text: "  ▓ = block  │ = nested task  x = toggle done"; color: "#222233"; font.family: "Fira Code"; font.pixelSize: 9 }
                 }
 
                 Rectangle {
@@ -645,7 +547,7 @@ PanelWindow {
                 }
             }
 
-            // ── agenda list (sections + rows) ──
+            // ── list ──
             ListView {
                 id: agendaList
                 width: parent.width
@@ -658,17 +560,16 @@ PanelWindow {
                 model: root.flatItems
 
                 delegate: Component {
-                    id: agendaDelegate
-
                     Column {
                         width: agendaList.width
                         spacing: 0
                         property var item: modelData
                         property var section: sections[modelData.sectionIdx]
-                        property int flatIdx: index
                         property bool isBlock: modelData.kind === "block"
+                        property bool isTaskInBlock: modelData.kind === "taskInBlock"
+                        property bool isOrphan: modelData.kind === "orphan"
 
-                        // section header — only shown for first item in each section
+                        // ── section header ──
                         Rectangle {
                             width: parent.width
                             height: sectionHeaderText.implicitHeight + 8
@@ -683,7 +584,6 @@ PanelWindow {
                                 height: 1
                                 color: {
                                     var sec = sections[root.flatItems[index].sectionIdx];
-                                    if (sec.isOverdue) return "#1a0f0f";
                                     if (sec.isToday) return "#0a1a1a";
                                     return "#0f0f1a";
                                 }
@@ -694,8 +594,13 @@ PanelWindow {
                                 anchors { left: parent.left; top: parent.top; topMargin: 6; leftMargin: 2 }
                                 text: {
                                     var sec = sections[root.flatItems[index].sectionIdx];
-                                    var total = sec.tasks.length + sec.blocks.length;
-                                    return sectionLabel(sec) + "  (" + total + ")";
+                                    var total = sec.blocks.length + sec.orphanTasks.length;
+                                    var taskTotal = 0;
+                                    for (var bi = 0; bi < sec.blocks.length; bi++) {
+                                        taskTotal += (sec.blocks[bi].taskOccurrences || []).length;
+                                    }
+                                    var label = sectionLabel(sec);
+                                    return label + "  ·  " + sec.blocks.length + " blocks" + (taskTotal > 0 ? " + " + taskTotal + " tasks" : "");
                                 }
                                 color: {
                                     var sec = sections[root.flatItems[index].sectionIdx];
@@ -721,13 +626,22 @@ PanelWindow {
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
                                 spacing: 0
 
-                                // kind badge
+                                // cursor + block icon
                                 Text {
                                     text: (index === root.selectedFlatIndex ? "▸" : " ") + " ▓"
                                     color: index === root.selectedFlatIndex ? "#79C0FF" : "#5588aa"
                                     font.family: "Fira Code"
                                     font.pixelSize: 11
-                                    width: 44
+                                    width: 34
+                                }
+
+                                // done checkbox (display-only for blocks)
+                                Text {
+                                    text: modelData.data.status === "ENDED" ? "[x]" : "[ ]"
+                                    color: modelData.data.status === "ENDED" ? "#66bb6a" : "#333333"
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 12
+                                    width: 24
                                 }
 
                                 // title
@@ -737,19 +651,17 @@ PanelWindow {
                                         if (!t || t === "") return "(untitled block)";
                                         return t;
                                     }
-                                    color: "#79C0FF"
+                                    color: index === root.selectedFlatIndex ? "#ffffff" : "#79C0FF"
                                     font.family: "Fira Code"
                                     font.pixelSize: 12
-                                    width: 276
+                                    width: 262
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                 }
 
-                                // block status tag
+                                // block status
                                 Item {
-                                    width: 100
-                                    height: parent.height
-
+                                    width: 100; height: parent.height
                                     Rectangle {
                                         color: blockBg()
                                         border { color: blockBorder(); width: 1 }
@@ -758,7 +670,6 @@ PanelWindow {
                                         width: Math.min(blockStatusText.implicitWidth + 16, 94)
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
-
                                         Text {
                                             id: blockStatusText
                                             anchors.centerIn: parent
@@ -784,50 +695,29 @@ PanelWindow {
                                     }
                                 }
 
-                                // task count inside block
-                                Item {
-                                    width: 82
-                                    height: parent.height
-
-                                    Rectangle {
-                                        color: blockBg()
-                                        border { color: blockBorder(); width: 1 }
-                                        radius: 3
-                                        height: blockTaskText.implicitHeight + 4
-                                        width: Math.min(blockTaskText.implicitWidth + 16, 76)
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.left: parent.left
-
-                                        Text {
-                                            id: blockTaskText
-                                            anchors.centerIn: parent
-                                            text: {
-                                                var tc = modelData.data.taskOccurrences ? modelData.data.taskOccurrences.length : 0;
-                                                return tc + " task" + (tc !== 1 ? "s" : "");
-                                            }
-                                            color: "#79C0FF"
-                                            font.family: "Fira Code"
-                                            font.pixelSize: 10
-                                        }
+                                // task count
+                                Text {
+                                    text: {
+                                        var tc = modelData.data.taskOccurrences ? modelData.data.taskOccurrences.length : 0;
+                                        return tc > 0 ? tc + " tasks" : "empty";
                                     }
+                                    color: modelData.data.taskOccurrences && modelData.data.taskOccurrences.length > 0 ? "#79C0FF" : "#334455"
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 10
+                                    width: 82
+                                    leftPadding: 10
                                 }
 
-                                // scheduled date/time
+                                // scheduled time
                                 Text {
                                     text: {
                                         var s = modelData.data.scheduledAt;
                                         if (!s) return "—";
-                                        // show time if today, otherwise date
-                                        var sec = sections[modelData.sectionIdx];
-                                        if (sec.isToday) {
-                                            return s.length >= 16 ? s.substring(11, 16) : s;
-                                        }
-                                        return s.length >= 10 ? s.substring(5, 10) : s;
+                                        return s.length >= 16 ? s.substring(11, 16) : s;
                                     }
                                     color: {
                                         var sec = sections[modelData.sectionIdx];
-                                        if (sec.isToday) return "#79C0FF";
-                                        return "#5588aa";
+                                        return sec.isToday ? "#79C0FF" : "#5588aa";
                                     }
                                     font.family: "Fira Code"
                                     font.pixelSize: 11
@@ -861,93 +751,142 @@ PanelWindow {
                             }
                         }
 
-                        // ── TASK row ──
+                        // ── TASK-IN-BLOCK row ──
                         Rectangle {
-                            visible: !isBlock
+                            visible: isTaskInBlock
                             width: parent.width
-                            height: 30
+                            height: 28
                             color: {
-                                if (index === root.selectedFlatIndex) return "#0a1a1a";
+                                if (index === root.selectedFlatIndex) return "#0a1418";
                                 if (index % 2 === 0) return "#000000";
-                                return "#030303";
+                                return "#020204";
                             }
-
-                            property bool rowIsOverdue: sections[modelData.sectionIdx].isOverdue
 
                             Row {
                                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
                                 spacing: 0
 
-                                // slug (with > prefix when selected)
+                                // indent + nest icon
                                 Text {
-                                    text: (index === root.selectedFlatIndex ? "▸ " : "  ") + modelData.data.slug
+                                    text: (index === root.selectedFlatIndex ? "▸" : " ") + "  │"
+                                    color: index === root.selectedFlatIndex ? "#4ecdc4" : "#333344"
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 11
+                                    width: 34
+                                }
+
+                                // done checkbox (clickable)
+                                Text {
+                                    text: {
+                                        var t = modelData.data.task;
+                                        return (t && t.status === "DONE") ? "[x]" : "[ ]";
+                                    }
                                     color: {
-                                        if (index === root.selectedFlatIndex) return "#4ecdc4";
-                                        if (parent.parent.rowIsOverdue) return "#664444";
-                                        return "#777777";
+                                        var t = modelData.data.task;
+                                        if (index === root.selectedFlatIndex) {
+                                            return (t && t.status === "DONE") ? "#66bb6a" : "#555555";
+                                        }
+                                        return (t && t.status === "DONE") ? "#66bb6a" : "#333333";
+                                    }
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 12
+                                    width: 24
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.toggleTaskDone(modelData)
+                                    }
+                                }
+
+                                // task title
+                                Text {
+                                    text: {
+                                        var t = modelData.data.task;
+                                        if (t && t.title) return t.title;
+                                        return "(untitled)";
+                                    }
+                                    color: {
+                                        if (index === root.selectedFlatIndex) return "#ffffff";
+                                        return "#999999";
                                     }
                                     font.family: "Fira Code"
                                     font.pixelSize: 11
-                                    width: 44
-                                }
-
-                                // title
-                                Text {
-                                    text: modelData.data.title
-                                    color: parent.parent.rowIsOverdue ? "#996666" : "#cccccc"
-                                    font.family: "Fira Code"
-                                    font.pixelSize: 12
-                                    width: 276
+                                    width: 262
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                 }
 
-                                // status tag
+                                // task status
                                 Item {
-                                    width: 100
-                                    height: parent.height
-
+                                    width: 100; height: parent.height
                                     Rectangle {
-                                        color: statBg(modelData.data.status)
-                                        border { color: statBorder(modelData.data.status); width: 1 }
+                                        color: {
+                                            var t = modelData.data.task;
+                                            return t ? statBg(t.status || "") : "#0a0a0a";
+                                        }
+                                        border {
+                                            color: {
+                                                var t = modelData.data.task;
+                                                return t ? statBorder(t.status || "") : "#2a2a2a";
+                                            }
+                                            width: 1
+                                        }
                                         radius: 3
-                                        height: statusText.implicitHeight + 4
-                                        width: Math.min(statusText.implicitWidth + 16, 94)
+                                        height: taskStatusText.implicitHeight + 4
+                                        width: Math.min(taskStatusText.implicitWidth + 16, 94)
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
-
                                         Text {
-                                            id: statusText
+                                            id: taskStatusText
                                             anchors.centerIn: parent
-                                            text: modelData.data.status
-                                            color: statColor(modelData.data.status)
+                                            text: {
+                                                var t = modelData.data.task;
+                                                return t ? (t.status || "—") : "—";
+                                            }
+                                            color: {
+                                                var t = modelData.data.task;
+                                                return t ? statColor(t.status || "") : "#888888";
+                                            }
                                             font.family: "Fira Code"
-                                            font.pixelSize: 10
+                                            font.pixelSize: 9
                                         }
                                     }
                                 }
 
-                                // priority tag
+                                // task priority
                                 Item {
-                                    width: 82
-                                    height: parent.height
-
+                                    width: 82; height: parent.height
                                     Rectangle {
-                                        color: priBg(modelData.data.priority)
-                                        border { color: priBorder(modelData.data.priority); width: 1 }
+                                        color: {
+                                            var t = modelData.data.task;
+                                            return t ? priBg(t.priority || "") : "#0a0a0a";
+                                        }
+                                        border {
+                                            color: {
+                                                var t = modelData.data.task;
+                                                return t ? priBorder(t.priority || "") : "#2a2a2a";
+                                            }
+                                            width: 1
+                                        }
                                         radius: 3
-                                        height: priorityText.implicitHeight + 4
-                                        width: Math.min(priorityText.implicitWidth + 16, 76)
+                                        height: taskPrioText.implicitHeight + 4
+                                        width: Math.min(taskPrioText.implicitWidth + 16, 76)
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
-
                                         Text {
-                                            id: priorityText
+                                            id: taskPrioText
                                             anchors.centerIn: parent
-                                            text: modelData.data.priority
-                                            color: priColor(modelData.data.priority)
+                                            text: {
+                                                var t = modelData.data.task;
+                                                return t ? (t.priority || "—") : "—";
+                                            }
+                                            color: {
+                                                var t = modelData.data.task;
+                                                return t ? priColor(t.priority || "") : "#888888";
+                                            }
                                             font.family: "Fira Code"
-                                            font.pixelSize: 10
+                                            font.pixelSize: 9
                                         }
                                     }
                                 }
@@ -955,22 +894,158 @@ PanelWindow {
                                 // due date
                                 Text {
                                     text: {
-                                        var d = formatDue(modelData.data.dueAt);
-                                        if (!d) return "—";
+                                        var t = modelData.data.task;
+                                        if (!t || !t.dueAt) return "—";
+                                        var d = t.dueAt.substring(0, 10);
                                         var sec = sections[modelData.sectionIdx];
                                         if (sec.isToday) return "Today";
-                                        if (sec.isTomorrow) return "Tomorrow";
-                                        if (sec.isOverdue) return d;
                                         return d;
                                     }
                                     color: {
-                                        var d = modelData.data.dueAt;
-                                        if (!d) return "#333333";
+                                        var t = modelData.data.task;
+                                        if (!t || !t.dueAt) return "#333333";
                                         var sec = sections[modelData.sectionIdx];
                                         if (sec.isToday) return "#ff6b6b";
-                                        if (sec.isOverdue) return "#ff6b6b";
                                         return "#82aaff";
                                     }
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 10
+                                    width: 82
+                                    leftPadding: 10
+                                }
+
+                                // estimate
+                                Text {
+                                    text: {
+                                        var t = modelData.data.task;
+                                        return formatEst(t ? t.estimatedMinutes : 0) || "—";
+                                    }
+                                    color: {
+                                        var t = modelData.data.task;
+                                        return (t && t.estimatedMinutes) ? "#c792ea" : "#333333";
+                                    }
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 10
+                                    width: 56
+                                    leftPadding: 2
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: root.selectedFlatIndex = index
+                            }
+                        }
+
+                        // ── ORPHAN task row ──
+                        Rectangle {
+                            visible: isOrphan
+                            width: parent.width
+                            height: 28
+                            color: {
+                                if (index === root.selectedFlatIndex) return "#0a1a1a";
+                                if (index % 2 === 0) return "#000000";
+                                return "#030303";
+                            }
+
+                            Row {
+                                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
+                                spacing: 0
+
+                                // cursor + orphan icon
+                                Text {
+                                    text: (index === root.selectedFlatIndex ? "▸" : " ") + " ○"
+                                    color: index === root.selectedFlatIndex ? "#4ecdc4" : "#444444"
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 11
+                                    width: 34
+                                }
+
+                                // done checkbox (clickable)
+                                Text {
+                                    text: modelData.data.status === "DONE" ? "[x]" : "[ ]"
+                                    color: {
+                                        if (index === root.selectedFlatIndex) {
+                                            return modelData.data.status === "DONE" ? "#66bb6a" : "#555555";
+                                        }
+                                        return modelData.data.status === "DONE" ? "#66bb6a" : "#333333";
+                                    }
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 12
+                                    width: 24
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.toggleTaskDone(modelData)
+                                    }
+                                }
+
+                                // title
+                                Text {
+                                    text: modelData.data.title || "(untitled)"
+                                    color: index === root.selectedFlatIndex ? "#ffffff" : "#cccccc"
+                                    font.family: "Fira Code"
+                                    font.pixelSize: 12
+                                    width: 262
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                }
+
+                                // status
+                                Item {
+                                    width: 100; height: parent.height
+                                    Rectangle {
+                                        color: statBg(modelData.data.status)
+                                        border { color: statBorder(modelData.data.status); width: 1 }
+                                        radius: 3
+                                        height: orphanStatusText.implicitHeight + 4
+                                        width: Math.min(orphanStatusText.implicitWidth + 16, 94)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        Text {
+                                            id: orphanStatusText
+                                            anchors.centerIn: parent
+                                            text: modelData.data.status || "—"
+                                            color: statColor(modelData.data.status)
+                                            font.family: "Fira Code"
+                                            font.pixelSize: 10
+                                        }
+                                    }
+                                }
+
+                                // priority
+                                Item {
+                                    width: 82; height: parent.height
+                                    Rectangle {
+                                        color: priBg(modelData.data.priority)
+                                        border { color: priBorder(modelData.data.priority); width: 1 }
+                                        radius: 3
+                                        height: orphanPrioText.implicitHeight + 4
+                                        width: Math.min(orphanPrioText.implicitWidth + 16, 76)
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        Text {
+                                            id: orphanPrioText
+                                            anchors.centerIn: parent
+                                            text: modelData.data.priority || "—"
+                                            color: priColor(modelData.data.priority)
+                                            font.family: "Fira Code"
+                                            font.pixelSize: 10
+                                        }
+                                    }
+                                }
+
+                                // due
+                                Text {
+                                    text: {
+                                        var d = formatDue(modelData.data.dueAt);
+                                        if (!d || d === "—") return "—";
+                                        var sec = sections[modelData.sectionIdx];
+                                        if (sec.isToday) return "Today";
+                                        return d;
+                                    }
+                                    color: modelData.data.dueAt ? "#82aaff" : "#333333"
                                     font.family: "Fira Code"
                                     font.pixelSize: 11
                                     width: 82
@@ -988,7 +1063,6 @@ PanelWindow {
                                 }
                             }
 
-                            // click to select
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: root.selectedFlatIndex = index
@@ -1003,7 +1077,7 @@ PanelWindow {
                 visible: flatItems.length === 0
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: "No upcoming tasks or blocks"
+                text: "No blocks or tasks for this week"
                 color: "#333333"
                 font.family: "Fira Code"
                 font.pixelSize: 13
@@ -1011,7 +1085,7 @@ PanelWindow {
                 bottomPadding: 24
             }
 
-            // ── legend (toggled by ?) ──
+            // ── legend ──
             Rectangle {
                 visible: legendVisible
                 width: parent.width
@@ -1026,7 +1100,7 @@ PanelWindow {
                     spacing: 3
 
                     Text {
-                        text: "Shortcuts"
+                        text: "Shortcuts — blocks (▓) contain tasks (│) in your agenda"
                         color: "#555555"
                         font.family: "Fira Code"
                         font.pixelSize: 10
@@ -1035,71 +1109,25 @@ PanelWindow {
                         spacing: 20
                         Column {
                             spacing: 3
-                            Text {
-                                text: "jk  ↑↓    navigate"
-                                color: "#666666"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "Enter      open task"
-                                color: "#4ecdc4"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text { text: ""; height: 1 }
-                            Text {
-                                text: "^N         new task"
-                                color: "#555555"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "^B         new block"
-                                color: "#79C0FF"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "Esc        close"
-                                color: "#555555"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
+                            Text { text: "jk  ↑↓    navigate"; color: "#666666"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "x          toggle done"; color: "#66bb6a"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "Enter      open task"; color: "#4ecdc4"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "Esc        close"; color: "#555555"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "[ ]        prev/next week"; color: "#666666"; font.family: "Fira Code"; font.pixelSize: 11 }
                         }
                         Column {
                             spacing: 3
-                            Text {
-                                text: "t          jump today"
-                                color: "#666666"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "n          next section"
-                                color: "#666666"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "p          prev section"
-                                color: "#666666"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text { text: ""; height: 1 }
-                            Text {
-                                text: "/          search title"
-                                color: "#666666"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
-                            Text {
-                                text: "?          toggle help"
-                                color: "#555555"
-                                font.family: "Fira Code"
-                                font.pixelSize: 11
-                            }
+                            Text { text: "t          jump today"; color: "#666666"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "n          next section"; color: "#666666"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "p          prev section"; color: "#666666"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "?          toggle help"; color: "#555555"; font.family: "Fira Code"; font.pixelSize: 11 }
+                        }
+                        Column {
+                            spacing: 3
+                            Text { text: "^N         new task"; color: "#555555"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "^B         new block"; color: "#79C0FF"; font.family: "Fira Code"; font.pixelSize: 11 }
+                            Text { text: "▓ = block   │ = nested task"; color: "#335566"; font.family: "Fira Code"; font.pixelSize: 10 }
+                            Text { text: "○ = orphan task (no block)"; color: "#443333"; font.family: "Fira Code"; font.pixelSize: 10 }
                         }
                     }
                 }
@@ -1117,9 +1145,8 @@ PanelWindow {
                 width: parent.width
                 spacing: 16
 
-                // count
                 Text {
-                    text: totalItemCount() + " items across " + sectionCount() + " sections"
+                    text: totalItemCount() + " items across " + sectionCount() + " days"
                     color: "#555555"
                     font.family: "Fira Code"
                     font.pixelSize: 11
@@ -1127,201 +1154,59 @@ PanelWindow {
 
                 Item { Layout.fillWidth: true }
 
-                // Enter hint
                 Row {
                     spacing: 6
-                    Text {
-                        text: "⏎"
-                        color: "#4ecdc4"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
-                    Text {
-                        text: "open"
-                        color: "#4ecdc4"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
+                    Text { text: "⏎"; color: "#4ecdc4"; font.family: "Fira Code"; font.pixelSize: 11 }
+                    Text { text: "open"; color: "#4ecdc4"; font.family: "Fira Code"; font.pixelSize: 11 }
                 }
-
-                // ^N hint
-                Row {
-                    spacing: 6
+                Row { spacing: 6
                     Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: newKeyLabel.implicitHeight + 2
-                        width: newKeyLabel.implicitWidth + 8
-                        Text {
-                            id: newKeyLabel
-                            anchors.centerIn: parent
-                            text: "^N"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
-                        }
-                    }
-                    Text {
-                        text: "task"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
-                }
-
-                // ^B hint
-                Row {
-                    spacing: 6
-                    Rectangle {
-                        color: "#0a1018"
-                        border { color: "#1a2a3a"; width: 1 }
-                        radius: 2
-                        height: blockKeyLabel.implicitHeight + 2
-                        width: blockKeyLabel.implicitWidth + 8
+                        color: "#0a1018"; border { color: "#1a2a3a"; width: 1 }
+                        radius: 2; height: blockKeyLabel.implicitHeight + 2; width: blockKeyLabel.implicitWidth + 8
                         Text {
                             id: blockKeyLabel
-                            anchors.centerIn: parent
-                            text: "^B"
-                            color: "#79C0FF"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
+                            anchors.centerIn: parent; text: "^B"; color: "#79C0FF"
+                            font.family: "Fira Code"; font.pixelSize: 10
                         }
                     }
-                    Text {
-                        text: "block"
-                        color: "#5588aa"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
+                    Text { text: "block"; color: "#5588aa"; font.family: "Fira Code"; font.pixelSize: 11 }
                 }
-
-                // / search hint
                 Row {
                     spacing: 6
                     Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: slashKeyLabel.implicitHeight + 2
-                        width: slashKeyLabel.implicitWidth + 8
-                        Text {
-                            id: slashKeyLabel
-                            anchors.centerIn: parent
-                            text: "/"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
-                        }
-                    }
-                    Text {
-                        text: "search"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
-                }
-
-                // section nav hint
-                Row {
-                    spacing: 6
-                    Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: sectionNavLabel.implicitHeight + 2
-                        width: sectionNavLabel.implicitWidth + 8
+                        color: "#111111"; border { color: "#2a2a2a"; width: 1 }
+                        radius: 2; height: sectionNavLabel.implicitHeight + 2; width: sectionNavLabel.implicitWidth + 8
                         Text {
                             id: sectionNavLabel
-                            anchors.centerIn: parent
-                            text: "n p"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
+                            anchors.centerIn: parent; text: "n p"; color: "#777777"
+                            font.family: "Fira Code"; font.pixelSize: 10
                         }
                     }
-                    Text {
-                        text: "section"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
+                    Text { text: "section"; color: "#444444"; font.family: "Fira Code"; font.pixelSize: 11 }
                 }
-
-                // t today hint
                 Row {
                     spacing: 6
                     Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: todayLabelKey.implicitHeight + 2
-                        width: todayLabelKey.implicitWidth + 8
+                        color: "#111111"; border { color: "#2a2a2a"; width: 1 }
+                        radius: 2; height: todayLabelKey.implicitHeight + 2; width: todayLabelKey.implicitWidth + 8
                         Text {
                             id: todayLabelKey
-                            anchors.centerIn: parent
-                            text: "t"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
+                            anchors.centerIn: parent; text: "t"; color: "#777777"
+                            font.family: "Fira Code"; font.pixelSize: 10
                         }
                     }
-                    Text {
-                        text: "today"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
+                    Text { text: "today"; color: "#444444"; font.family: "Fira Code"; font.pixelSize: 11 }
                 }
-
-                // ? hint
                 Row {
                     spacing: 6
+                    Text { text: "close"; color: "#444444"; font.family: "Fira Code"; font.pixelSize: 11 }
                     Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: helpKeyLabel.implicitHeight + 2
-                        width: helpKeyLabel.implicitWidth + 8
-                        Text {
-                            id: helpKeyLabel
-                            anchors.centerIn: parent
-                            text: "?"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
-                        }
-                    }
-                    Text {
-                        text: "help"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
-                }
-
-                // Esc hint
-                Row {
-                    spacing: 6
-                    Text {
-                        text: "close"
-                        color: "#444444"
-                        font.family: "Fira Code"
-                        font.pixelSize: 11
-                    }
-                    Rectangle {
-                        color: "#111111"
-                        border { color: "#2a2a2a"; width: 1 }
-                        radius: 2
-                        height: escLabel.implicitHeight + 2
-                        width: escLabel.implicitWidth + 8
+                        color: "#111111"; border { color: "#2a2a2a"; width: 1 }
+                        radius: 2; height: escLabel.implicitHeight + 2; width: escLabel.implicitWidth + 8
                         Text {
                             id: escLabel
-                            anchors.centerIn: parent
-                            text: "Esc"
-                            color: "#777777"
-                            font.family: "Fira Code"
-                            font.pixelSize: 10
+                            anchors.centerIn: parent; text: "Esc"; color: "#777777"
+                            font.family: "Fira Code"; font.pixelSize: 10
                         }
                     }
                 }
@@ -1330,27 +1215,15 @@ PanelWindow {
 
         // ── keyboard handling ──
         Keys.onPressed: function(event) {
-            // j / Down — move selection down
             if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-                event.accepted = true;
-                moveSelectionDown();
-                return;
+                event.accepted = true; moveSelectionDown(); return;
             }
-
-            // k / Up — move selection up
             if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-                event.accepted = true;
-                moveSelectionUp();
-                return;
+                event.accepted = true; moveSelectionUp(); return;
             }
-
-            // Enter — open (placeholder)
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                event.accepted = true;
-                return;
+                event.accepted = true; return;
             }
-
-            // Escape — clear search, then close
             if (event.key === Qt.Key_Escape) {
                 event.accepted = true;
                 if (searchVisible) {
@@ -1364,15 +1237,9 @@ PanelWindow {
                 Quickshell.execDetached(["qs", "ipc", "call", "agenda", "hide"]);
                 return;
             }
-
-            // ? — toggle legend
             if (event.key === Qt.Key_Question) {
-                event.accepted = true;
-                legendVisible = !legendVisible;
-                return;
+                event.accepted = true; legendVisible = !legendVisible; return;
             }
-
-            // / — search
             if (event.key === Qt.Key_Slash) {
                 event.accepted = true;
                 searchVisible = true;
@@ -1381,67 +1248,47 @@ PanelWindow {
                 searchInput.forceActiveFocus();
                 return;
             }
-
-            // t — jump to Today section
             if (event.key === Qt.Key_T) {
+                event.accepted = true; jumpToToday(); return;
+            }
+            if (event.key === Qt.Key_X) {
                 event.accepted = true;
-                jumpToToday();
+                if (flatItems.length > 0) toggleTaskDone(flatItems[selectedFlatIndex]);
                 return;
             }
-
-            // n — jump to next section
             if (event.key === Qt.Key_N) {
-                event.accepted = true;
-                jumpToNextSection();
-                return;
+                event.accepted = true; jumpToNextSection(); return;
             }
-
-            // p — jump to previous section
             if (event.key === Qt.Key_P) {
-                event.accepted = true;
-                jumpToPrevSection();
-                return;
+                event.accepted = true; jumpToPrevSection(); return;
             }
-
-            // ^N — new task
             if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_N) {
                 event.accepted = true;
                 Quickshell.execDetached(["qs", "ipc", "call", "task-create", "open"]);
                 return;
             }
-
-            // ^B — new block
             if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_B) {
                 event.accepted = true;
                 Quickshell.execDetached(["qs", "ipc", "call", "block-create", "open"]);
                 return;
             }
-
-            // [ — previous week
             if (event.key === Qt.Key_BracketLeft) {
-                event.accepted = true;
-                navigateWeekPrev();
-                return;
+                event.accepted = true; navigateWeekPrev(); return;
             }
-
-            // ] — next week
             if (event.key === Qt.Key_BracketRight) {
-                event.accepted = true;
-                navigateWeekNext();
-                return;
+                event.accepted = true; navigateWeekNext(); return;
             }
         }
     }
 
-    // ── focus + load on show ──
+    // ── on visible ──
     onVisibleChanged: {
         if (visible) {
             selectedFlatIndex = 0;
             legendVisible = false;
             sections = [];
             flatItems = [];
-            rawTasks = [];
-            rawBlocks = [];
+            anchorDate = "";
             loadAgenda();
             popup.forceActiveFocus();
         }
