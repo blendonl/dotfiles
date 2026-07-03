@@ -34,6 +34,7 @@ PanelWindow {
     property string blockProjectId: ""
     property string nlDateInput: ""
     property string parsedDateStr: ""
+    property string parsedDateTime: ""
     property bool dateParseLoading: false
     property string dateParseError: ""
 
@@ -157,6 +158,7 @@ PanelWindow {
         datePickerVisible = false;
         nlDateInput = "";
         parsedDateStr = "";
+        parsedDateTime = "";
         dateParseError = "";
     }
 
@@ -223,24 +225,43 @@ PanelWindow {
     }
 
     // ── scheduling ──
-    function scheduleForDate(dateStr) {
-        console.error("DEBUG scheduleForDate called, date:", dateStr, "selected:", selectedTaskIds.length);
-        if (selectedTaskIds.length === 0) return;
-        var cmds = [];
+    // Build a block-create command for one project with optional task slugs.
+    // Blocks (even empty) appear in the agenda; tasks nest inside blocks.
+    function buildBlockCmd(proj, startDateTime, taskSlugs) {
+        var title = proj.name;
+        var args = ["/usr/sbin/cadence", "block", "create", "--title", title, "--start", startDateTime, "--duration", "60", "--project", proj.slug];
+        if (taskSlugs && taskSlugs.length > 0) {
+            args.push("--tasks");
+            for (var si = 0; si < taskSlugs.length; si++) {
+                args.push(taskSlugs[si]);
+            }
+        }
+        var q = args.map(function(a) {
+            return "'" + a.replace(/'/g, "'\\''") + "'";
+        }).join(" ");
+        return q;
+    }
+
+    // Group selected tasks by project and build one block-create command per project
+    function scheduleSelected(dateTimeStr) {
+        var projectTasks = {};  // projectId -> { proj: ..., taskSlugs: [...] }
         for (var i = 0; i < selectedTaskIds.length; i++) {
             for (var pi = 0; pi < projects.length; pi++) {
                 for (var ti = 0; ti < projects[pi].tasks.length; ti++) {
                     if (projects[pi].tasks[ti].id === selectedTaskIds[i]) {
-                        var args = ["/usr/sbin/cadence", "task", "update", projects[pi].tasks[ti].slug, "--due", dateStr];
-                        var q = args.map(function(a) {
-                            return "'" + a.replace(/'/g, "'\\''") + "'";
-                        }).join(" ");
-                        cmds.push(q);
+                        if (!projectTasks[projects[pi].id]) {
+                            projectTasks[projects[pi].id] = { proj: projects[pi], taskSlugs: [] };
+                        }
+                        projectTasks[projects[pi].id].taskSlugs.push(projects[pi].tasks[ti].slug);
                     }
                 }
             }
         }
-        console.error("DEBUG scheduleForDate matched", cmds.length, "tasks");
+        var cmds = [];
+        for (var pid in projectTasks) {
+            var pt = projectTasks[pid];
+            cmds.push(buildBlockCmd(pt.proj, dateTimeStr, pt.taskSlugs));
+        }
         if (cmds.length === 0) return;
         var cmd = cmds.join("; ");
         cmd += " 2>/tmp/cadence-planner-schedule-error.txt";
@@ -248,13 +269,16 @@ PanelWindow {
         scheduleProcess.running = true;
     }
 
-    function scheduleBlock(proj, dateStr) {
-        var title = proj.name + " — Work block";
-        var start = dateStr + "T09:00:00Z";
-        var args = ["/usr/sbin/cadence", "block", "create", "--title", title, "--start", start, "--duration", "60", "--project", proj.slug];
-        var cmd = args.map(function(a) {
-            return "'" + a.replace(/'/g, "'\\''") + "'";
-        }).join(" ");
+    // Quick-schedule for a date string (no time — defaults to 09:00 UTC)
+    function scheduleForDate(dateStr) {
+        var dateTimeStr = dateStr + "T09:00:00Z";
+        if (selectedTaskIds.length === 0) return;
+        scheduleSelected(dateTimeStr);
+    }
+
+    // Schedule a block for a single project (empty-project flow or direct block mode)
+    function scheduleBlock(proj, dateTimeStr) {
+        var cmd = buildBlockCmd(proj, dateTimeStr, []);
         cmd += " 2>/tmp/cadence-planner-schedule-error.txt";
         scheduleProcess.command = ["bash", "-c", cmd];
         scheduleProcess.running = true;
@@ -386,6 +410,7 @@ PanelWindow {
                 var raw = JSON.parse(parseDateFile.text());
                 if (raw.dateStr) {
                     root.parsedDateStr = raw.dateStr;
+                    root.parsedDateTime = raw.date || "";
                     // Automatically schedule once the date is parsed
                     scheduleBar.doSchedule();
                 } else {
@@ -421,7 +446,7 @@ PanelWindow {
     Rectangle {
         id: popup
         anchors.centerIn: parent
-        width: 740
+        width: 780
         height: Math.min(popupContent.implicitHeight + 36, root.height - 60)
         color: "#000000"
         border {
@@ -460,6 +485,13 @@ PanelWindow {
                     color: "#4ecdc4"
                     font.family: "Fira Code"
                     font.pixelSize: 11
+                }
+                Item { width: 1; height: 1 }
+                Text {
+                    text: "blocks appear in agenda"
+                    color: "#335566"
+                    font.family: "Fira Code"
+                    font.pixelSize: 10
                 }
             }
 
@@ -539,11 +571,12 @@ PanelWindow {
                     Text { text: "";        color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 24 }
                     Text { text: "";        color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 28 }
                     Text { text: "Slug";    color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 60 }
-                    Text { text: "Title";   color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 264 }
+                    Text { text: "Title";   color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 244 }
                     Text { text: "Status";  color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 100 }
                     Text { text: "Priority";color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 82 }
                     Text { text: "Due";     color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 82 }
                     Text { text: "Est";     color: "#444444"; font.family: "Fira Code"; font.pixelSize: 10; width: 56 }
+                    Text { text: "  select → schedule as block"; color: "#222233"; font.family: "Fira Code"; font.pixelSize: 9 }
                 }
 
                 Rectangle {
@@ -686,7 +719,7 @@ PanelWindow {
                                 }
                                 Item { width: 28; height: 1 }
                                 Text {
-                                    text: "No tasks — schedule time to work on this project"
+                                    text: "No tasks — schedule a block to allocate time"
                                     color: "#555555"
                                     font.family: "Fira Code"
                                     font.pixelSize: 11
@@ -721,6 +754,7 @@ PanelWindow {
                                             root.customDate = "";
                                             root.nlDateInput = "";
                                             root.parsedDateStr = "";
+                                            root.parsedDateTime = "";
                                             root.dateParseError = "";
                                             root.datePickerVisible = true;
                                             nlFocusTimer.start();
@@ -812,7 +846,7 @@ PanelWindow {
                                     color: index === root.focusedIndex ? "#ffffff" : "#cccccc"
                                     font.family: "Fira Code"
                                     font.pixelSize: 12
-                                    width: 264
+                                    width: 244
                                     elide: Text.ElideRight
                                     maximumLineCount: 1
                                 }
@@ -972,6 +1006,14 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
+                        Text {
+                            text: "→ blocks in agenda"
+                            color: "#335566"
+                            font.family: "Fira Code"
+                            font.pixelSize: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
                         Rectangle {
                             width: 1
                             height: 20
@@ -1061,7 +1103,10 @@ PanelWindow {
                         width: parent.width
 
                         Text {
-                            text: scheduleMode === "block" ? "Schedule block:" : "Schedule for:"
+                            text: {
+                                if (scheduleMode === "block") return "Create block:";
+                                return "Schedule in blocks:";
+                            }
                             color: "#777777"
                             font.family: "Fira Code"
                             font.pixelSize: 11
@@ -1104,6 +1149,7 @@ PanelWindow {
                                 onTextChanged: {
                                     root.nlDateInput = text;
                                     root.parsedDateStr = "";
+                                    root.parsedDateTime = "";
                                     root.dateParseError = "";
                                 }
 
@@ -1127,16 +1173,16 @@ PanelWindow {
 
                         // Parse feedback
                         Text {
-                            visible: root.dateParseLoading || root.parsedDateStr !== "" || root.dateParseError !== ""
+                            visible: root.dateParseLoading || root.parsedDateTime !== "" || root.dateParseError !== ""
                             text: {
                                 if (root.dateParseLoading) return "…";
                                 if (root.dateParseError) return "✗ " + root.dateParseError;
-                                if (root.parsedDateStr) return "✓ " + root.parsedDateStr;
+                                if (root.parsedDateTime) return "✓ " + root.parsedDateStr;
                                 return "";
                             }
                             color: {
                                 if (root.dateParseError) return "#ff6b6b";
-                                if (root.parsedDateStr) return "#66bb6a";
+                                if (root.parsedDateTime) return "#66bb6a";
                                 return "#555555";
                             }
                             font.family: "Fira Code"
@@ -1148,12 +1194,12 @@ PanelWindow {
                         Rectangle {
                             id: schedBtn
                             color: {
-                                if (!root.parsedDateStr) return "#0a0a0a";
+                                if (!root.parsedDateTime) return "#0a0a0a";
                                 return schedBtnHover ? "#0f2020" : "#0a1a1a";
                             }
                             border {
                                 color: {
-                                    if (!root.parsedDateStr) return "#1a1a1a";
+                                    if (!root.parsedDateTime) return "#1a1a1a";
                                     return schedBtnHover ? "#4ecdc4" : "#1f3f3f";
                                 }
                                 width: 1
@@ -1163,13 +1209,13 @@ PanelWindow {
                             width: schedBtnLabel.implicitWidth + 20
                             anchors.verticalCenter: parent.verticalCenter
                             property bool schedBtnHover: false
-                            opacity: root.parsedDateStr ? 1.0 : 0.4
+                            opacity: root.parsedDateTime ? 1.0 : 0.4
 
                             Text {
                                 id: schedBtnLabel
                                 anchors.centerIn: parent
                                 text: "Schedule"
-                                color: root.parsedDateStr ? "#4ecdc4" : "#444444"
+                                color: root.parsedDateTime ? "#4ecdc4" : "#444444"
                                 font.family: "Fira Code"
                                 font.pixelSize: 11
                             }
@@ -1180,7 +1226,7 @@ PanelWindow {
                                 onEntered: schedBtn.schedBtnHover = true
                                 onExited: schedBtn.schedBtnHover = false
                                 onClicked: {
-                                    if (root.parsedDateStr) scheduleBar.doSchedule();
+                                    if (root.parsedDateTime) scheduleBar.doSchedule();
                                 }
                             }
                         }
@@ -1212,6 +1258,7 @@ PanelWindow {
                     root.dateParseLoading = true;
                     root.dateParseError = "";
                     root.parsedDateStr = "";
+                    root.parsedDateTime = "";
                     parseDateFile.path = "";
                     var escaped = root.nlDateInput.replace(/'/g, "'\\''");
                     parseDateProcess.command = [
@@ -1222,17 +1269,16 @@ PanelWindow {
                 }
 
                 function doSchedule() {
-                    if (!root.parsedDateStr) return;
-                    root.customDate = root.parsedDateStr;
+                    if (!root.parsedDateTime) return;
                     if (root.scheduleMode === "block") {
                         for (var i = 0; i < root.projects.length; i++) {
                             if (root.projects[i].id === root.blockProjectId) {
-                                root.scheduleBlock(root.projects[i], root.customDate);
+                                root.scheduleBlock(root.projects[i], root.parsedDateTime);
                                 break;
                             }
                         }
                     } else {
-                        root.scheduleForDate(root.customDate);
+                        root.scheduleSelected(root.parsedDateTime);
                     }
                     root.datePickerVisible = false;
                 }
@@ -1261,7 +1307,7 @@ PanelWindow {
                     spacing: 3
 
                     Text {
-                        text: "Shortcuts"
+                        text: "Shortcuts — tasks go into blocks in your agenda"
                         color: "#555555"
                         font.family: "Fira Code"
                         font.pixelSize: 10
@@ -1289,6 +1335,12 @@ PanelWindow {
                             Text { text: "^N         new task"; color: "#555555"; font.family: "Fira Code"; font.pixelSize: 11 }
                             Text { text: "^B         new block"; color: "#79C0FF"; font.family: "Fira Code"; font.pixelSize: 11 }
                         }
+                    }
+                    Text {
+                        text: "Blocks (even empty) appear in agenda → tasks nest inside blocks → schedule = allocate project time"
+                        color: "#333355"
+                        font.family: "Fira Code"
+                        font.pixelSize: 9
                     }
                 }
             }
@@ -1427,17 +1479,16 @@ PanelWindow {
             // Enter in schedule bar mode
             if ((datePickerVisible || selectedTaskIds.length > 0) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) {
                 event.accepted = true;
-                if (parsedDateStr) {
-                    customDate = parsedDateStr;
+                if (parsedDateTime) {
                     if (scheduleMode === "block") {
                         for (var i = 0; i < projects.length; i++) {
                             if (projects[i].id === blockProjectId) {
-                                scheduleBlock(projects[i], customDate);
+                                scheduleBlock(projects[i], parsedDateTime);
                                 break;
                             }
                         }
                     } else {
-                        scheduleForDate(customDate);
+                        scheduleSelected(parsedDateTime);
                     }
                     datePickerVisible = false;
                 } else if (nlDateInput.trim()) {
@@ -1477,6 +1528,7 @@ PanelWindow {
                     blockProjectId = flatItems[focusedIndex].proj.id;
                     nlDateInput = "";
                     parsedDateStr = "";
+                    parsedDateTime = "";
                     dateParseError = "";
                     datePickerVisible = true;
                     nlFocusTimer.start();
@@ -1495,6 +1547,7 @@ PanelWindow {
                     blockProjectId = flatItems[focusedIndex].proj.id;
                     nlDateInput = "";
                     parsedDateStr = "";
+                    parsedDateTime = "";
                     dateParseError = "";
                     datePickerVisible = true;
                     nlFocusTimer.start();
@@ -1567,6 +1620,7 @@ PanelWindow {
             customDate = "";
             nlDateInput = "";
             parsedDateStr = "";
+            parsedDateTime = "";
             dateParseError = "";
             searchText = "";
             searchVisible = false;
