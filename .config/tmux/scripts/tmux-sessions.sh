@@ -10,6 +10,8 @@ SEARCH_PATHS=(
     /mnt/data/personal/dotfiles/.config
     /mnt/data/personal
     /mnt/data/notes
+    /mnt/network-share/personal
+    /mnt/network-share/work
 )
 
 CONFIG_ROOTS=(

@@ -231,8 +231,8 @@ PanelWindow {
         var title = proj.name;
         var args = ["/usr/sbin/cadence", "block", "create", "--title", title, "--start", startDateTime, "--duration", "60", "--project", proj.slug];
         if (taskSlugs && taskSlugs.length > 0) {
-            args.push("--tasks");
             for (var si = 0; si < taskSlugs.length; si++) {
+                args.push("--tasks");
                 args.push(taskSlugs[si]);
             }
         }
