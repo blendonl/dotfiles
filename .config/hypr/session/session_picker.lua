@@ -11,6 +11,24 @@
 local SCRIPT = os.getenv('HOME') .. '/.config/hypr/scripts/session-picker.sh'
 local CACHE_FILE = '/tmp/hypr-session-picker-cache.txt'
 
+-- Static sessions defined in sessions.lua — single source of truth
+-- that both Lua and the shell script consume (shell calls lua -e).
+local STATIC_SESSIONS = require('sessions')
+
+-- Index by dir for fast name/default_ws lookups
+local _static_by_dir = {}
+for _, s in ipairs(STATIC_SESSIONS) do
+  _static_by_dir[s.dir] = s
+end
+
+-- ============================================================
+-- Helpers
+-- ============================================================
+
+local function is_remote_path(path)
+  return path:sub(1, 9) == '/mnt/data'
+end
+
 -- ============================================================
 -- In-memory caches (populated once at startup)
 -- ============================================================
@@ -31,6 +49,11 @@ local function find_sessions()
   end
 
   local sessions = {}
+
+  -- Static sessions always come first
+  for _, s in ipairs(STATIC_SESSIONS) do
+    sessions[#sessions + 1] = s.dir
+  end
 
   -- Try the cache file first (< 1ms, survives reboots)
   local f = io.open(CACHE_FILE, 'r')
@@ -71,6 +94,18 @@ end
 -- ============================================================
 
 local function resolve_session_name(dir_path)
+  -- Static sessions have predefined names
+  local static = _static_by_dir[dir_path]
+  if static then
+    return static.name
+  end
+
+  -- Remote projects: derive name from path relative to /mnt/data/
+  if is_remote_path(dir_path) then
+    local rel = dir_path:sub(11)  -- strip "/mnt/data/"
+    return rel:gsub('%.', '_')
+  end
+
   -- Check if the directory itself is a git repo
   local f = io.open(dir_path .. '/.git/HEAD')
   if f then
@@ -128,8 +163,9 @@ local function rofi_select(sessions)
   local lines = {}
 
   for _, path in ipairs(sessions) do
-    local name = resolve_session_name(path)
-    local display = name
+    local raw_name = resolve_session_name(path)
+    local prefix = is_remote_path(path) and '[remote] ' or ''
+    local display = prefix .. raw_name
     if seen[display] then
       local i = 2
       while seen[display .. ' (' .. i .. ')'] do
@@ -266,6 +302,13 @@ local function run(selected)
   end
 
   if not selected or selected == '' then
+    return
+  end
+
+  -- Remote projects: tmux sessions are managed by the devserver.
+  -- The user connects via Hyprland workspace rules (see default_workspaces.lua).
+  -- Nothing to do here.
+  if is_remote_path(selected) then
     return
   end
 

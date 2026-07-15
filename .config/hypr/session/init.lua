@@ -53,16 +53,17 @@ end
 --- Restore all active sessions at startup.
 --- Registers workspace rules for every saved session and focuses
 --- the last active session's last-focused workspace.
+--- Falls back to the "global" session (sessions.lua) when no saved
+--- session exists or all saved directories are stale.
 function M.restore_last_session()
   local all = state.get_all()
-  if not all or not next(all.sessions) then
-    return
-  end
 
   -- Register workspace rules for EVERY saved session so that
   -- per-session workspaces (term, browser, editor) survive restarts.
-  for ses_name, ses in pairs(all.sessions) do
-    register_session_workspaces(ses_name, ses.dir)
+  if all and all.sessions then
+    for ses_name, ses in pairs(all.sessions) do
+      register_session_workspaces(ses_name, ses.dir)
+    end
   end
 
   -- Focus the last active session's last workspace
@@ -74,7 +75,26 @@ function M.restore_last_session()
         workspace = 'name:' .. saved.name .. '/' .. last_ws,
       }))
     end
+    return
   end
+
+  -- No saved session (or all saved directories are stale).
+  -- Fall back to the global session defined in sessions.lua.
+  local home = os.getenv('HOME')
+  if home then
+    M.activate_session(home)
+  end
+end
+
+--- Switch to the previously active session (the one with the highest
+--- last_active timestamp that isn't the current session).
+--- No-op if there is no previous session or its directory is gone.
+function M.switch_to_previous_session()
+  local prev = state.get_previous()
+  if not prev then
+    return
+  end
+  M.activate_session(prev.dir)
 end
 
 M.restore_last_session()
