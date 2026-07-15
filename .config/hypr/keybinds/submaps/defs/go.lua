@@ -4,23 +4,6 @@ local workspaces = require('keybinds.submaps.workspaces.registry')
 
 local SCRIPT = os.getenv('HOME') .. '/.config/hypr/scripts/session-picker.sh'
 
-
-local function go_session(ws_type)
-  return function()
-    local ses = state.get_active_name()
-
-    if not ses then
-      return
-    end
-
-    hl.dispatch(hl.dsp.focus({
-      workspace = 'name:' .. ses .. '/' .. ws_type,
-    }))
-
-    state.set_last_workspace(ws_type)
-  end
-end
-
 local function pick_session_async()
   hl.dispatch(hl.dsp.submap('reset'))
   hl.dispatch(hl.dsp.exec_cmd(SCRIPT))
@@ -33,10 +16,28 @@ r.define('go', function(bind)
   end
 
 
-  bind('t', go_session('term'), { description = 'Session terminal' })
-  bind('b', go_session('browser'), { description = 'Session browser' })
-  bind('e', go_session('editor'), { description = 'Session editor' })
+  local function track_and_focus(ws_type)
+    local ses = state.get_active_name()
+    if not ses then
+      return
+    end
 
+    state.set_last_workspace(ws_type)
+    hl.dispatch(hl.dsp.focus({
+      workspace = 'name:' .. ses .. '/' .. ws_type,
+    }))
+  end
+
+  bind('t', function()
+    track_and_focus('term')
+  end
+  , { description = 'Session terminal' })
+  bind('b', function()
+    track_and_focus('browser')
+  end, { description = 'Session browser' })
+  bind('e', function()
+    track_and_focus('editor')
+  end, { description = 'Session editor' })
 
   bind('s', pick_session_async, { description = 'Switch session' })
 
