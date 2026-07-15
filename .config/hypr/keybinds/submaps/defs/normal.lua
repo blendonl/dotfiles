@@ -34,6 +34,19 @@ r.define("normal", function(bind)
   bind('g', hl.dsp.submap('go'), { description = 'Go' })
   require('keybinds.submaps.defs.go')
 
+  local SCRIPT = os.getenv('HOME') .. '/.config/hypr/scripts/session-picker.sh'
+
+  local function pick_session_async()
+    hl.dispatch(hl.dsp.exec_cmd(SCRIPT))
+  end
+
+  bind('space', pick_session_async, { description = 'Session Picker' })
+
+  bind('return', function()
+    local session = require('session.init')
+    session.switch_to_previous_session()
+  end, { description = 'Last Session' })
+
 
 
   hl.bind('escape', hl.dsp.submap('reset'), { description = 'Cancel' })
