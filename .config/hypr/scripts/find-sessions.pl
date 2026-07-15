@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use File::Find;
 
+my $max_depth = shift // 0;
 my @config_roots = split /,/, shift;
 my @monorepo_subs = split /,/, shift;
 
@@ -11,6 +12,16 @@ for my $path (@ARGV) {
 }
 
 sub wanted {
+    # Enforce max depth (0 = unlimited)
+    if ($max_depth > 0) {
+        my $top_depth = () = ($File::Find::topdir =~ /\//g);
+        my $current_depth = () = ($File::Find::name =~ /\//g);
+        if ($current_depth - $top_depth > $max_depth) {
+            $File::Find::prune = 1;
+            return;
+        }
+    }
+
     return ($File::Find::prune = 1) if /^\../;
 
     for my $root (@config_roots) {
@@ -38,4 +49,5 @@ sub wanted {
     }
 }
 
+@ARGV = grep { -d $_ } @ARGV;
 find \&wanted, @ARGV;
