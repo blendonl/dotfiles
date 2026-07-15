@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -24,16 +25,49 @@ PanelWindow {
     property int selectedIndex: 0
     property string statusFilter: ""
     property string priorityFilter: ""
+    property string projectFilter: ""
     property bool legendVisible: false
     property bool filterPrefix: false
     property string searchText: ""
     property bool searchVisible: false
+    property bool projectFilterVisible: false
+
+    // ── multi-select ──
+    property var selectedTaskSlugs: ({})
+    property bool multiSelectMode: false
+    property string pendingAction: ""  // "" | "delete" | "status" | "priority"
+    property int selectedCount: 0
+
+    // ── keep selectedCount in sync (QML bindings can't trace into JS functions) ──
+    onSelectedTaskSlugsChanged: {
+        selectedCount = Object.keys(selectedTaskSlugs).length;
+    }
+
+    // ── multi-select pending timeout ──
+    Timer {
+        id: pendingActionTimer
+        interval: 2000
+        onTriggered: pendingAction = ""
+    }
+
+    // ── pagination ──
+    property int currentPage: 1
+    property int pageSize: 50
+    property bool hasMore: true
+    property bool isLoadingMore: false
 
     // ── filter prefix timeout ──
     Timer {
         id: filterTimer
         interval: 800
         onTriggered: filterPrefix = false
+    }
+
+    // ── auto-scroll list to follow keyboard selection ──
+    onSelectedIndexChanged: {
+        if (taskList) {
+            taskList.positionViewAtIndex(selectedIndex, ListView.Contain);
+        }
     }
 
     // ── helpers ──
@@ -106,11 +140,9 @@ PanelWindow {
         }
         return m + "m";
     }
-    function projectSlug() {
-        if (tasks.length > 0 && tasks[0].projectSlug) {
-            return tasks[0].projectSlug;
-        }
-        return "";
+    function projectLabel() {
+        if (projectFilter) return "project: " + projectFilter;
+        return "all projects";
     }
     function filteredCount() {
         return tasks.length;
@@ -119,14 +151,31 @@ PanelWindow {
         var parts = [];
         if (statusFilter) parts.push("status: " + statusFilter);
         if (priorityFilter) parts.push("priority: " + priorityFilter);
+        if (projectFilter) parts.push("project: " + projectFilter);
         return parts.join("  ");
     }
 
     // ── load tasks ──
     function loadTasks() {
+        currentPage = 1;
+        hasMore = true;
+        isLoadingMore = false;
+        _loadPage(currentPage);
+    }
+
+    function loadMoreTasks() {
+        if (!hasMore || isLoadingMore || tasksProcess.running) return;
+        currentPage += 1;
+        isLoadingMore = true;
+        _loadPage(currentPage);
+    }
+
+    function _loadPage(page) {
         var filterArgs = "";
         if (statusFilter) filterArgs += " --status " + statusFilter;
         if (priorityFilter) filterArgs += " --priority " + priorityFilter;
+        if (projectFilter) filterArgs += " --project " + projectFilter;
+        filterArgs += " --page " + page + " --limit " + pageSize;
 
         var cmd = "/usr/sbin/cadence task list --output json" + filterArgs;
         // pipe through jq for server-side title search
@@ -162,8 +211,117 @@ PanelWindow {
     function clearFilters() {
         statusFilter = "";
         priorityFilter = "";
+        projectFilter = "";
+        projectFilterVisible = false;
         selectedIndex = 0;
         loadTasks();
+    }
+
+    // ── multi-select helpers ──
+    // IMPORTANT: always assign a fresh object to selectedTaskSlugs so QML
+    // bindings (reference-equal check) see the change and re-evaluate.
+    function _cloneSelection() {
+        var copy = ({});
+        var keys = Object.keys(selectedTaskSlugs);
+        for (var i = 0; i < keys.length; i++) {
+            copy[keys[i]] = true;
+        }
+        return copy;
+    }
+
+    function toggleTaskSelection(slug) {
+        var next = _cloneSelection();
+        if (next[slug]) {
+            delete next[slug];
+        } else {
+            next[slug] = true;
+        }
+        selectedTaskSlugs = next;  // new object → bindings refresh
+        pendingAction = "";
+        if (Object.keys(next).length === 0) {
+            multiSelectMode = false;
+        }
+    }
+
+    function exitMultiSelect() {
+        selectedTaskSlugs = ({});  // fresh empty object
+        multiSelectMode = false;
+        pendingAction = "";
+    }
+
+    function executeBatch(cmdBuilder) {
+        var slugs = Object.keys(selectedTaskSlugs);
+        if (slugs.length === 0) return;
+        var cmds = slugs.map(function(s) { return cmdBuilder(s); });
+        var script = cmds.join(" && ");
+        batchProcess.command = ["bash", "-c", script];
+        batchProcess.running = true;
+    }
+
+    function batchDelete() {
+        if (pendingAction === "delete") {
+            // second press — confirm and execute
+            executeBatch(function(slug) {
+                return "/usr/sbin/cadence task delete " + slug + " --force";
+            });
+            pendingAction = "";
+        } else {
+            pendingAction = "delete";
+            pendingActionTimer.restart();
+        }
+    }
+
+    function handleBatchStatusKey(text) {
+        if (!text) return false;
+        var map = { "T": "TODO", "I": "IN_PROGRESS", "R": "IN_REVIEW", "D": "DONE", "B": "BACKLOG" };
+        var status = map[text.toUpperCase()];
+        if (status) {
+            executeBatch(function(slug) {
+                return "/usr/sbin/cadence task status " + slug + " " + status;
+            });
+            pendingAction = "";
+            return true;
+        }
+        return false;
+    }
+
+    function handleBatchDueKey(text) {
+        if (!text) return false;
+        var map = { "T": "today", "W": "week", "M": "tomorrow", "N": "month" };
+        var key = text.toUpperCase();
+        if (!map[key]) return false;
+
+        var d = new Date();
+        switch (key) {
+            case "T": break;                           // today
+            case "M": d.setDate(d.getDate() + 1); break;  // tomorrow
+            case "W": d.setDate(d.getDate() + 7); break;  // +1 week
+            case "N": d.setMonth(d.getMonth() + 1); break; // +1 month
+        }
+        var yyyy = d.getFullYear();
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        var dateStr = yyyy + '-' + mm + '-' + dd;
+
+        executeBatch(function(slug) {
+            return "/usr/sbin/cadence task update " + slug + " --due " + dateStr;
+        });
+        pendingAction = "";
+        return true;
+    }
+
+    function handleBatchPriorityKey(text) {
+        if (!text) return false;
+        var map = { "U": "URGENT", "H": "HIGH", "M": "MEDIUM", "L": "LOW" };
+        var pri = map[text.toUpperCase()];
+        if (pri) {
+            executeBatch(function(slug) {
+                return "/usr/sbin/cadence task update " + slug + " --priority " + pri;
+            });
+            pendingAction = "";
+            return true;
+        }
+        return false;
     }
 
     // ── process ──
@@ -181,14 +339,22 @@ PanelWindow {
         path: ""
         onLoaded: {
             try {
-                root.tasks = JSON.parse(tasksFile.text());
-                root.selectedIndex = 0;
-                if (root.tasks.length > 0) {
+                var newTasks = JSON.parse(tasksFile.text());
+                if (root.isLoadingMore) {
+                    root.tasks = root.tasks.concat(newTasks);
+                    root.isLoadingMore = false;
+                } else {
+                    root.tasks = newTasks;
+                    root.selectedIndex = 0;
+                }
+                root.hasMore = newTasks.length >= root.pageSize;
+                if (root.tasks.length > 0 && !root.isLoadingMore) {
                     popup.forceActiveFocus();
                 }
             } catch (e) {
                 console.error("Failed to parse task list:", e);
                 root.tasks = [];
+                root.isLoadingMore = false;
             }
         }
         onLoadFailed: function(err) {
@@ -196,6 +362,16 @@ PanelWindow {
             if (path === "") return;
             console.error("Failed to read task list:", err);
             root.tasks = [];
+        }
+    }
+
+    // ── batch process (multi-select operations) ──
+    Process {
+        id: batchProcess
+        onExited: function(exitCode, exitStatus) {
+            batchProcess.command = [];
+            exitMultiSelect();
+            loadTasks();
         }
     }
 
@@ -240,18 +416,17 @@ PanelWindow {
                     font.pixelSize: 12
                 }
                 Text {
-                    text: projectSlug()
+                    text: "— " + projectLabel()
                     color: "#4ecdc4"
                     font.family: "Fira Code"
                     font.pixelSize: 11
-                    visible: projectSlug() !== ""
                 }
             }
 
             // ── active filter chips ──
             Row {
                 spacing: 8
-                visible: statusFilter !== "" || priorityFilter !== ""
+                visible: statusFilter !== "" || priorityFilter !== "" || projectFilter !== ""
                 anchors.topMargin: 6
 
                 Rectangle {
@@ -284,6 +459,24 @@ PanelWindow {
                         id: filterPriorityLabel
                         anchors.centerIn: parent
                         text: "priority: " + priorityFilter
+                        color: "#4ecdc4"
+                        font.family: "Fira Code"
+                        font.pixelSize: 10
+                    }
+                }
+
+                Rectangle {
+                    visible: projectFilter !== ""
+                    color: "#0a1a1a"
+                    border { color: "#1f3f3f"; width: 1 }
+                    radius: 3
+                    height: filterProjectLabel.implicitHeight + 4
+                    width: filterProjectLabel.implicitWidth + 12
+
+                    Text {
+                        id: filterProjectLabel
+                        anchors.centerIn: parent
+                        text: "project: " + projectFilter
                         color: "#4ecdc4"
                         font.family: "Fira Code"
                         font.pixelSize: 10
@@ -352,8 +545,66 @@ PanelWindow {
                 }
             }
 
-            // spacing after search
-            Item { height: searchVisible ? 6 : 10; width: 1 }
+            // ── project filter bar ──
+            Row {
+                visible: projectFilterVisible
+                spacing: 8
+                width: parent.width
+                height: projectFilterInput.implicitHeight + 12
+
+                Text {
+                    text: "proj"
+                    color: "#c792ea"
+                    font.family: "Fira Code"
+                    font.pixelSize: 14
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                TextInput {
+                    id: projectFilterInput
+                    width: parent.width - 48
+                    color: "#ffffff"
+                    font.family: "Fira Code"
+                    font.pixelSize: 14
+                    activeFocusOnPress: true
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Text {
+                        anchors.fill: parent
+                        text: "filter by project slug…"
+                        color: "#333333"
+                        font.family: "Fira Code"
+                        font.pixelSize: 14
+                        visible: !projectFilterInput.text && !projectFilterInput.activeFocus
+                    }
+
+                    onTextChanged: {
+                        projectFilter = text;
+                    }
+
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Escape) {
+                            event.accepted = true;
+                            projectFilter = "";
+                            projectFilterInput.text = "";
+                            projectFilterVisible = false;
+                            selectedIndex = 0;
+                            loadTasks();
+                            popup.forceActiveFocus();
+                            return;
+                        }
+                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                            event.accepted = true;
+                            selectedIndex = 0;
+                            loadTasks();
+                            popup.forceActiveFocus();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // spacing after search / project filter
+            Item { height: (searchVisible || projectFilterVisible) ? 6 : 10; width: 1 }
 
             // ── column headers ──
             Rectangle {
@@ -367,18 +618,25 @@ PanelWindow {
                     spacing: 0
 
                     Text {
+                        text: "Proj"
+                        color: "#444444"
+                        font.family: "Fira Code"
+                        font.pixelSize: 10
+                        width: 56
+                    }
+                    Text {
                         text: "Slug"
                         color: "#444444"
                         font.family: "Fira Code"
                         font.pixelSize: 10
-                        width: 80
+                        width: 64
                     }
                     Text {
                         text: "Title"
                         color: "#444444"
                         font.family: "Fira Code"
                         font.pixelSize: 10
-                        width: 260
+                        width: 220
                     }
                     Text {
                         text: "Status"
@@ -417,17 +675,120 @@ PanelWindow {
                 }
             }
 
+            // ── batch action bar (multi-select) ──
+            Rectangle {
+                visible: multiSelectMode
+                width: parent.width
+                height: batchBarContent.implicitHeight + 10
+                color: "#0a1a0f"
+                border { color: "#1f3f1f"; width: 1 }
+                radius: 3
+
+                Row {
+                    id: batchBarContent
+                    anchors { left: parent.left; top: parent.top; margins: 8; right: parent.right }
+                    spacing: 10
+
+                    Text {
+                        text: "● " + selectedCount + " selected"
+                        color: "#66bb6a"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+
+                    Text {
+                        visible: pendingAction === "" && selectedCount > 0
+                        text: "s:status  p:priority  @:due  d:delete  Esc:cancel"
+                        color: "#447744"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+
+                    Text {
+                        visible: pendingAction === "delete"
+                        text: "Delete " + selectedCount + " tasks?  d or y to confirm  any other key to cancel"
+                        color: "#ff6b6b"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+
+                    Text {
+                        visible: pendingAction === "status"
+                        text: "Set status:  T=TODO  I=IN_PROGRESS  R=IN_REVIEW  D=DONE  B=BACKLOG  Esc=cancel"
+                        color: "#82aaff"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+
+                    Text {
+                        visible: pendingAction === "priority"
+                        text: "Set priority:  U=URGENT  H=HIGH  M=MEDIUM  L=LOW  Esc=cancel"
+                        color: "#ffa726"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+
+                    Text {
+                        visible: pendingAction === "due"
+                        text: "Set due:  T=today  M=tomorrow  W=+1week  N=+1month  Esc=cancel"
+                        color: "#82aaff"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                }
+            }
+
             // ── task list ──
             ListView {
                 id: taskList
                 width: parent.width
-                height: Math.min(taskList.contentHeight, 400)
+                height: Math.min(400, root.height - 200)
                 interactive: true
                 clip: true
                 keyNavigationEnabled: true
+                boundsBehavior: Flickable.StopAtBounds
+                flickDeceleration: 5000
+                maximumFlickVelocity: 2000
 
                 model: root.tasks
                 delegate: taskRowDelegate
+
+                // load more when scrolling near the bottom
+                onContentYChanged: {
+                    if (!root.hasMore || root.isLoadingMore || tasksProcess.running) return;
+                    var distToBottom = taskList.contentHeight - (taskList.contentY + taskList.height);
+                    if (distToBottom < 80) {
+                        root.loadMoreTasks();
+                    }
+                }
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                    width: 6
+                    contentItem: Rectangle {
+                        color: "#333333"
+                        radius: 3
+                    }
+                }
+
+                // load-more indicator footer
+                footer: Rectangle {
+                    visible: root.hasMore
+                    width: taskList.width
+                    height: 28
+                    color: "#000000"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.isLoadingMore ? "Loading…" : (root.tasks.length > 0 ? "scroll for more…" : "")
+                        color: "#333333"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                }
+
+                // loading indicator at bottom
+                footerPositioning: ListView.OverlayFooter
             }
 
             // ── empty state ──
@@ -481,6 +842,12 @@ PanelWindow {
                             }
                             Text { text: ""; height: 1 }
                             Text {
+                                text: "v Space    multi-select"
+                                color: "#66bb6a"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                            Text {
                                 text: "^N         new task"
                                 color: "#555555"
                                 font.family: "Fira Code"
@@ -513,6 +880,12 @@ PanelWindow {
                                 font.family: "Fira Code"
                                 font.pixelSize: 11
                             }
+                            Text {
+                                text: "f r        project filter"
+                                color: "#666666"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
                             Text { text: ""; height: 1 }
                             Text {
                                 text: "/          search title"
@@ -522,6 +895,45 @@ PanelWindow {
                             }
                             Text {
                                 text: "?          toggle help"
+                                color: "#555555"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                        }
+                        Column {
+                            spacing: 3
+                            Text {
+                                text: "Multi-select"
+                                color: "#447744"
+                                font.family: "Fira Code"
+                                font.pixelSize: 10
+                            }
+                            Text {
+                                text: "s t/i/r/d/b  set status"
+                                color: "#82aaff"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                            Text {
+                                text: "p u/h/m/l    set priority"
+                                color: "#ffa726"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                            Text {
+                                text: "@ t/m/w/n    set due date"
+                                color: "#82aaff"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                            Text {
+                                text: "dd or dy     delete"
+                                color: "#ff6b6b"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                            }
+                            Text {
+                                text: "Esc          exit select"
                                 color: "#555555"
                                 font.family: "Fira Code"
                                 font.pixelSize: 11
@@ -552,8 +964,8 @@ PanelWindow {
 
                 // count
                 Text {
-                    text: filteredCount() + " tasks"
-                    color: "#555555"
+                    text: filteredCount() + " tasks" + (multiSelectMode ? "  ● " + selectedCount + " selected" : "")
+                    color: multiSelectMode ? "#66bb6a" : "#555555"
                     font.family: "Fira Code"
                     font.pixelSize: 11
                 }
@@ -664,6 +1076,32 @@ PanelWindow {
                     }
                 }
 
+                // f r project filter hint
+                Row {
+                    spacing: 6
+                    Rectangle {
+                        color: "#111111"
+                        border { color: "#2a2a2a"; width: 1 }
+                        radius: 2
+                        height: projKeyLabel.implicitHeight + 2
+                        width: projKeyLabel.implicitWidth + 8
+                        Text {
+                            id: projKeyLabel
+                            anchors.centerIn: parent
+                            text: "f r"
+                            color: "#777777"
+                            font.family: "Fira Code"
+                            font.pixelSize: 10
+                        }
+                    }
+                    Text {
+                        text: "project"
+                        color: "#444444"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                }
+
                 // ? hint
                 Row {
                     spacing: 6
@@ -720,6 +1158,113 @@ PanelWindow {
 
         // ── keyboard handling ──
         Keys.onPressed: function(event) {
+            // ── multi-select mode keys ──
+            if (multiSelectMode) {
+                // pending action sub-keys
+                if (pendingAction === "due") {
+                    if (handleBatchDueKey(event.text)) {
+                        event.accepted = true;
+                        return;
+                    }
+                }
+                if (pendingAction === "status") {
+                    if (handleBatchStatusKey(event.text)) {
+                        event.accepted = true;
+                        return;
+                    }
+                    // non-matching key — let it fall through to nav / esc / space
+                }
+                if (pendingAction === "priority") {
+                    if (handleBatchPriorityKey(event.text)) {
+                        event.accepted = true;
+                        return;
+                    }
+                    // non-matching key — let it fall through to nav / esc / space
+                }
+                if (pendingAction === "delete") {
+                    if (event.key === Qt.Key_D || event.key === Qt.Key_Y) {
+                        event.accepted = true;
+                        executeBatch(function(slug) {
+                            return "/usr/sbin/cadence task delete " + slug + " --force";
+                        });
+                        pendingAction = "";
+                        return;
+                    }
+                    // any other key cancels delete pending
+                    pendingAction = "";
+                }
+
+                // navigation in multi-select mode
+                if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+                    event.accepted = true;
+                    pendingAction = "";
+                    if (root.tasks.length > 0) {
+                        root.selectedIndex = Math.min(root.selectedIndex + 1, root.tasks.length - 1);
+                    }
+                    return;
+                }
+                if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+                    event.accepted = true;
+                    pendingAction = "";
+                    if (root.tasks.length > 0) {
+                        root.selectedIndex = Math.max(root.selectedIndex - 1, 0);
+                    }
+                    return;
+                }
+
+                // Space / v toggles current
+                if (event.key === Qt.Key_Space || event.key === Qt.Key_V) {
+                    event.accepted = true;
+                    pendingAction = "";
+                    if (root.tasks.length > 0) {
+                        toggleTaskSelection(root.tasks[root.selectedIndex].slug);
+                    }
+                    return;
+                }
+
+                // Escape — exit multi-select
+                if (event.key === Qt.Key_Escape) {
+                    event.accepted = true;
+                    exitMultiSelect();
+                    return;
+                }
+
+                // d — arm delete
+                if (event.key === Qt.Key_D) {
+                    event.accepted = true;
+                    batchDelete();
+                    return;
+                }
+
+                // s — arm status change
+                if (event.key === Qt.Key_S) {
+                    event.accepted = true;
+                    pendingAction = "status";
+                    pendingActionTimer.restart();
+                    return;
+                }
+
+                // p — arm priority change
+                if (event.key === Qt.Key_P) {
+                    event.accepted = true;
+                    pendingAction = "priority";
+                    pendingActionTimer.restart();
+                    return;
+                }
+
+                // @ — arm due date change
+                if (event.key === Qt.Key_At || event.text === "@") {
+                    event.accepted = true;
+                    pendingAction = "due";
+                    pendingActionTimer.restart();
+                    return;
+                }
+
+                // ignore other keys in multi-select mode
+                event.accepted = true;
+                return;
+            }
+
             // filter prefix armed — handle s/p/c
             if (filterPrefix) {
                 filterTimer.restart();
@@ -741,8 +1286,33 @@ PanelWindow {
                     clearFilters();
                     return;
                 }
+                if (event.key === Qt.Key_R) {
+                    event.accepted = true;
+                    filterPrefix = false;
+                    projectFilterVisible = !projectFilterVisible;
+                    if (projectFilterVisible) {
+                        projectFilterInput.text = projectFilter;
+                        projectFilterInput.forceActiveFocus();
+                    } else {
+                        projectFilter = "";
+                        projectFilterInput.text = "";
+                        selectedIndex = 0;
+                        loadTasks();
+                    }
+                    return;
+                }
                 // any other key cancels prefix
                 filterPrefix = false;
+            }
+
+            // v or Space — enter multi-select mode
+            if (event.key === Qt.Key_V || event.key === Qt.Key_Space) {
+                event.accepted = true;
+                if (root.tasks.length > 0) {
+                    multiSelectMode = true;
+                    toggleTaskSelection(root.tasks[root.selectedIndex].slug);
+                }
+                return;
             }
 
             // j / Down — move selection down
@@ -769,13 +1339,21 @@ PanelWindow {
                 return;
             }
 
-            // Escape — clear search, then close
+            // Escape — clear search/project filter, then close
             if (event.key === Qt.Key_Escape) {
                 event.accepted = true;
                 if (searchVisible) {
                     searchText = "";
                     searchInput.text = "";
                     searchVisible = false;
+                    selectedIndex = 0;
+                    loadTasks();
+                    return;
+                }
+                if (projectFilterVisible) {
+                    projectFilter = "";
+                    projectFilterInput.text = "";
+                    projectFilterVisible = false;
                     selectedIndex = 0;
                     loadTasks();
                     return;
@@ -826,6 +1404,7 @@ PanelWindow {
             width: taskList.width
             height: 30
             color: {
+                if (root.selectedTaskSlugs[modelData.slug]) return "#0a1f1a";
                 if (index === root.selectedIndex) return "#0a1a1a";
                 if (index % 2 === 0) return "#000000";
                 return "#030303";
@@ -835,13 +1414,34 @@ PanelWindow {
                 anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 0
 
-                // slug (with > prefix when selected)
+                // project slug / selection indicator
                 Text {
-                    text: (index === root.selectedIndex ? "> " : "  ") + modelData.slug
+                    text: {
+                        if (root.selectedTaskSlugs[modelData.slug]) return "● " + (modelData._projectSlug || "");
+                        if (index === root.selectedIndex) return "> " + (modelData._projectSlug || "");
+                        return "  " + (modelData._projectSlug || "");
+                    }
+                    color: {
+                        if (root.selectedTaskSlugs[modelData.slug]) return "#66bb6a";
+                        if (index === root.selectedIndex) return "#c792ea";
+                        return "#555555";
+                    }
+                    font.family: "Fira Code"
+                    font.pixelSize: 10
+                    width: 56
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+
+                // slug
+                Text {
+                    text: modelData.slug
                     color: index === root.selectedIndex ? "#4ecdc4" : "#777777"
                     font.family: "Fira Code"
                     font.pixelSize: 11
-                    width: 80
+                    width: 64
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
 
                 // title
@@ -850,7 +1450,7 @@ PanelWindow {
                     color: "#cccccc"
                     font.family: "Fira Code"
                     font.pixelSize: 12
-                    width: 260
+                    width: 220
                     elide: Text.ElideRight
                     maximumLineCount: 1
                 }
@@ -940,6 +1540,11 @@ PanelWindow {
             selectedIndex = 0;
             filterPrefix = false;
             legendVisible = false;
+            projectFilter = "";
+            projectFilterVisible = false;
+            searchText = "";
+            searchVisible = false;
+            exitMultiSelect();
             loadTasks();
             popup.forceActiveFocus();
         }
