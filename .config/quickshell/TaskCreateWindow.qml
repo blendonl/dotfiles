@@ -24,14 +24,21 @@ PanelWindow {
     property string taskStatus: "BACKLOG"
     property string taskDue: ""
     property string taskEstimate: ""
+    property string taskProject: ""
     property bool descVisible: false
     property bool legendVisible: false
+
+    // ── project suggestions ──
+    property var allProjects: []
+    property var projectSuggestions: []
+    property bool showProjectSuggestions: false
+    property int projectSuggestionIndex: 0
 
     // ── helpers ──
     function titleText() {
         // strip all prefix tokens from the input
         var t = mainInput.text;
-        t = t.replace(/\s*[!@~=]\S+/g, '');
+        t = t.replace(/\s*[!@~=#]\S+/g, '');
         return t.trim();
     }
 
@@ -67,9 +74,55 @@ PanelWindow {
         // estimate
         var estMatch = text.match(/~(\S+)/);
         taskEstimate = estMatch ? estMatch[1] : "";
+
+        // project
+        var projMatch = text.match(/#(\S+)/);
+        taskProject = projMatch ? projMatch[1] : "";
     }
 
     function focusMainInput() {
+        mainInput.forceActiveFocus();
+    }
+
+    // ── project suggestion helpers ──
+    function fetchProjects() {
+        if (allProjects.length > 0) return;
+        projectListProcess.command = ["bash", "-c",
+            "/usr/sbin/cadence project list -o json > /tmp/cadence-projects.json 2>/dev/null"];
+        projectListProcess.running = true;
+    }
+
+    function updateProjectSuggestions() {
+        var query = taskProject.toLowerCase();
+        if (query === "" || allProjects.length === 0) {
+            projectSuggestions = [];
+            showProjectSuggestions = false;
+            return;
+        }
+        var matches = [];
+        for (var i = 0; i < allProjects.length; i++) {
+            var p = allProjects[i];
+            if (p.slug.toLowerCase().indexOf(query) === 0 ||
+                p.name.toLowerCase().indexOf(query) !== -1) {
+                matches.push(p);
+            }
+        }
+        projectSuggestions = matches.slice(0, 8);
+        projectSuggestionIndex = 0;
+        showProjectSuggestions = projectSuggestions.length > 0;
+    }
+
+    function acceptProjectSuggestion(index) {
+        if (index < 0 || index >= projectSuggestions.length) return;
+        var slug = projectSuggestions[index].slug;
+        var text = mainInput.text;
+        var hashIdx = text.lastIndexOf('#');
+        if (hashIdx < 0) return;
+        var afterHash = text.substring(hashIdx + 1);
+        var spaceMatch = afterHash.match(/\s/);
+        var endIdx = spaceMatch ? hashIdx + 1 + spaceMatch.index : text.length;
+        mainInput.text = text.substring(0, hashIdx) + "#" + slug + " " + text.substring(endIdx);
+        showProjectSuggestions = false;
         mainInput.forceActiveFocus();
     }
 
@@ -96,6 +149,9 @@ PanelWindow {
         }
         if (taskEstimate !== "") {
             args.push("--estimate", taskEstimate);
+        }
+        if (taskProject !== "") {
+            args.push("--project", taskProject);
         }
         if (descInput.text.trim() !== "") {
             args.push("--description", descInput.text.trim());
@@ -154,6 +210,36 @@ PanelWindow {
             errorText = "cadence failed (could not read error output)";
             showError = true;
             mainInput.forceActiveFocus();
+        }
+    }
+
+    // ── project list fetch ──
+    Process {
+        id: projectListProcess
+
+        onExited: function(exitCode, exitStatus) {
+            projectListProcess.command = [];
+            if (exitCode === 0) {
+                projectListFile.path = "";
+                projectListFile.path = "/tmp/cadence-projects.json";
+            }
+        }
+    }
+
+    FileView {
+        id: projectListFile
+        path: ""
+        onLoaded: {
+            try {
+                var data = JSON.parse(projectListFile.text());
+                allProjects = data.items || [];
+                updateProjectSuggestions();
+            } catch (e) {
+                allProjects = [];
+            }
+        }
+        onLoadFailed: {
+            allProjects = [];
         }
     }
 
@@ -223,9 +309,46 @@ PanelWindow {
                         visible: !mainInput.text && !mainInput.activeFocus
                     }
 
-                    onTextChanged: parseInput()
+                    onTextChanged: {
+                        parseInput();
+                        if (taskProject !== "") {
+                            fetchProjects();
+                            updateProjectSuggestions();
+                        } else {
+                            showProjectSuggestions = false;
+                        }
+                    }
 
                     Keys.onPressed: function(event) {
+                        // ── suggestion navigation (when visible) ──
+                        if (showProjectSuggestions) {
+                            if (event.key === Qt.Key_Down) {
+                                event.accepted = true;
+                                projectSuggestionIndex = Math.min(projectSuggestionIndex + 1, projectSuggestions.length - 1);
+                                return;
+                            }
+                            if (event.key === Qt.Key_Up) {
+                                event.accepted = true;
+                                projectSuggestionIndex = Math.max(projectSuggestionIndex - 1, 0);
+                                return;
+                            }
+                            if (event.key === Qt.Key_Tab) {
+                                event.accepted = true;
+                                acceptProjectSuggestion(projectSuggestionIndex);
+                                return;
+                            }
+                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                event.accepted = true;
+                                acceptProjectSuggestion(projectSuggestionIndex);
+                                return;
+                            }
+                            if (event.key === Qt.Key_Escape) {
+                                event.accepted = true;
+                                showProjectSuggestions = false;
+                                return;
+                            }
+                        }
+
                         // Ctrl+N — toggle description
                         if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_N) {
                             event.accepted = true;
@@ -253,6 +376,14 @@ PanelWindow {
                             }
                             return;
                         }
+                        // Ctrl+P — append project prefix
+                        if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_P) {
+                            event.accepted = true;
+                            if (text.indexOf('#') === -1) {
+                                text = text.trim() + " #";
+                            }
+                            return;
+                        }
                         // Enter — create
                         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                             event.accepted = true;
@@ -272,6 +403,51 @@ PanelWindow {
                             event.accepted = true;
                             legendVisible = !legendVisible;
                             return;
+                        }
+                    }
+                }
+            }
+
+            // ── project suggestion popup ──
+            Rectangle {
+                visible: showProjectSuggestions
+                width: 480
+                height: Math.min(projectSuggestions.length * 28 + 8, 232)
+                color: "#0a0a0a"
+                border { color: "#1f3f1f"; width: 1 }
+                radius: 4
+
+                ListView {
+                    id: projectSuggestionList
+                    anchors { fill: parent; margins: 4 }
+                    model: projectSuggestions
+                    clip: true
+                    interactive: false
+
+                    delegate: Rectangle {
+                        width: ListView.view.width
+                        height: 28
+                        color: index === projectSuggestionIndex ? "#1a2a1a" : "transparent"
+                        radius: 2
+
+                        Row {
+                            anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                            spacing: 10
+                            Text {
+                                text: modelData.slug
+                                color: "#81c784"
+                                font.family: "Fira Code"
+                                font.pixelSize: 12
+                                width: 70
+                            }
+                            Text {
+                                text: modelData.name
+                                color: "#555555"
+                                font.family: "Fira Code"
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                                width: 380
+                            }
                         }
                     }
                 }
@@ -380,6 +556,25 @@ PanelWindow {
                         font.pixelSize: 11
                     }
                 }
+
+                // project tag
+                Rectangle {
+                    visible: taskProject !== ""
+                    color: "#0f1a0f"
+                    border { color: "#1f3f1f"; width: 1 }
+                    radius: 3
+                    height: projLabel.implicitHeight + 4
+                    width: projLabel.implicitWidth + 16
+
+                    Text {
+                        id: projLabel
+                        anchors.centerIn: parent
+                        text: "#" + taskProject
+                        color: "#81c784"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                }
             }
 
             // ── legend (toggled by ?) ──
@@ -426,6 +621,12 @@ PanelWindow {
                         font.family: "Fira Code"
                         font.pixelSize: 11
                     }
+                    Text {
+                        text: "#PROJECT    Set project slug (#my-project)"
+                        color: "#666666"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
                     Text { text: ""; height: 2 }
                     Text {
                         text: "^N     Toggle description"
@@ -441,6 +642,12 @@ PanelWindow {
                     }
                     Text {
                         text: "^E     Append estimate prefix"
+                        color: "#555555"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                    Text {
+                        text: "^P     Append project prefix"
                         color: "#555555"
                         font.family: "Fira Code"
                         font.pixelSize: 11
@@ -688,6 +895,32 @@ PanelWindow {
                     }
                 }
 
+                // Ctrl+P hint
+                Row {
+                    spacing: 6
+                    Rectangle {
+                        color: "#111111"
+                        border { color: "#2a2a2a"; width: 1 }
+                        radius: 2
+                        height: ctrlP.implicitHeight + 2
+                        width: ctrlP.implicitWidth + 8
+                        Text {
+                            id: ctrlP
+                            anchors.centerIn: parent
+                            text: "^P"
+                            color: "#777777"
+                            font.family: "Fira Code"
+                            font.pixelSize: 10
+                        }
+                    }
+                    Text {
+                        text: "project"
+                        color: "#444444"
+                        font.family: "Fira Code"
+                        font.pixelSize: 11
+                    }
+                }
+
                 Item { Layout.fillWidth: true }
 
                 // Esc hint
@@ -733,6 +966,10 @@ PanelWindow {
             taskStatus = "BACKLOG";
             taskDue = "";
             taskEstimate = "";
+            taskProject = "";
+            showProjectSuggestions = false;
+            projectSuggestions = [];
+            projectSuggestionIndex = 0;
             parseInput();
             focusMainInput();
         }
