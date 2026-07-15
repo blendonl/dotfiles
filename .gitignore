@@ -40,3 +40,10 @@ ags.tmo
 .config/Vieb/Trust\ Tokens-journal
 .config/Vieb/windowstate
 .config/tmux/log.err
+
+# Claude Code local state (contains credentials, cache, history)
+.claude/
+
+# Test artifacts
+.config/hypr/test.cat
+.config/hypr/test.ct
