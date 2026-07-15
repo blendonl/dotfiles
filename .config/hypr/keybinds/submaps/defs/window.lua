@@ -19,7 +19,7 @@ end
 hl.define_submap('window', function()
   hl.bind("catchall", hl.dsp.submap("reset"))
 
-  hl.bind('F', hl.dsp.window.fullscreen_state({ internal = 1, client = -1, action = 'toggle' }),
+  hl.bind('F', hl.dsp.window.fullscreen_state({ internal = 1, client = 0, action = 'toggle' }),
     { description = 'Fullscreen' })
   hl.bind('D', hl.dsp.window.fullscreen_state({ internal = 0, client = 1, action = 'toggle' }),
     { description = 'Fake fullscreen' })
