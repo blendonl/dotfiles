@@ -26,7 +26,7 @@ local function json_unescape(s)
 end
 
 --- Encode the full state table to a JSON string.
---- @param data table  {sessions = {[name] = {dir, last_workspace?}}, last_active?}
+--- @param data table  {sessions = {[name] = {dir, last_workspace?, active?, last_active_ts?}}, last_active?}
 local function encode(data)
   local p = {}
   p[#p + 1] = '{"sessions":{'
@@ -37,6 +37,12 @@ local function encode(data)
     p[#p + 1] = '"' .. json_escape(name) .. '":{"dir":"' .. json_escape(ses.dir) .. '"'
     if ses.last_workspace then
       p[#p + 1] = ',"last_workspace":"' .. json_escape(ses.last_workspace) .. '"'
+    end
+    if ses.active then
+      p[#p + 1] = ',"active":"' .. json_escape(ses.active) .. '"'
+    end
+    if ses.last_active_ts then
+      p[#p + 1] = ',"last_active_ts":"' .. json_escape(ses.last_active_ts) .. '"'
     end
     p[#p + 1] = '}'
   end
@@ -89,7 +95,7 @@ end
 --- Decode the JSON string back to a state table.
 --- Handles both the new multi-session format and the legacy
 --- single-session format (auto-migrates on next write).
---- @return table  {sessions = {[name] = {dir, last_workspace?}}, last_active?}
+--- @return table  {sessions = {[name] = {dir, last_workspace?, active?, last_active_ts?}}, last_active?}
 local function decode(raw)
   if not raw or raw == '' then
     return { sessions = {} }
@@ -116,12 +122,6 @@ local function decode(raw)
 
   local data = { sessions = {} }
 
-  -- Extract last_active
-  local _, last_active = find_string_value(raw, 'last_active', 1)
-  if last_active then
-    data.last_active = last_active
-  end
-
   -- Extract the sessions object block (between "sessions":{ and its matching })
   local ses_start, ses_brace = raw:find('"sessions":%s*{')
   if not ses_start then
@@ -146,6 +146,14 @@ local function decode(raw)
 
   if not ses_end then
     return data
+  end
+
+  -- Extract top-level last_active (session name) — must search AFTER
+  -- the sessions object to avoid picking up the per-session last_active
+  -- timestamp fields, which share the same key name.
+  local _, last_active = find_string_value(raw, 'last_active', ses_end)
+  if last_active then
+    data.last_active = last_active
   end
 
   local sessions_block = raw:sub(ses_brace + 1, ses_end - 1)
@@ -185,11 +193,19 @@ local function decode(raw)
     local ses_raw = sessions_block:sub(brace_pos, inner_end)
     local _, dir = find_string_value(ses_raw, 'dir', 1)
     local _, last_ws = find_string_value(ses_raw, 'last_workspace', 1)
+    local _, active = find_string_value(ses_raw, 'active', 1)
+    -- Prefer new key name last_active_ts; fall back to old name last_active
+    local _, last_active_ts = find_string_value(ses_raw, 'last_active_ts', 1)
+    if not last_active_ts then
+      _, last_active_ts = find_string_value(ses_raw, 'last_active', 1)
+    end
 
     if dir and name then
       data.sessions[name] = {
         dir = dir,
         last_workspace = last_ws or nil,
+        active = active or nil,
+        last_active_ts = last_active_ts or nil,
       }
     end
 
@@ -251,13 +267,21 @@ end
 function M.save(name, dir)
   local data = read_file()
 
-  -- Preserve last_workspace if this session already exists
-  local existing_last_ws = nil
-  if data.sessions[name] then
-    existing_last_ws = data.sessions[name].last_workspace
+  -- Preserve fields if this session already exists
+  local existing = data.sessions[name] or {}
+
+  -- Mark all sessions inactive
+  for _, ses in pairs(data.sessions) do
+    ses.active = 'false'
   end
 
-  data.sessions[name] = { dir = dir, last_workspace = existing_last_ws }
+  local now = os.date('%Y-%m-%dT%H:%M:%S')
+  data.sessions[name] = {
+    dir = dir,
+    last_workspace = existing.last_workspace or nil,
+    active = 'true',
+    last_active_ts = now,
+  }
   data.last_active = name
 
   write_file(data)
@@ -284,6 +308,11 @@ function M.restore()
     -- Pick another session as last_active if available
     local next_name = next(data.sessions)
     if next_name then
+      -- Fix active flags: the new fallback is now the active session
+      for _, s in pairs(data.sessions) do
+        s.active = 'false'
+      end
+      data.sessions[next_name].active = 'true'
       data.last_active = next_name
       write_file(data)
       return { name = next_name, dir = data.sessions[next_name].dir }
@@ -308,6 +337,36 @@ function M.get_active_dir()
   if not data.last_active then return nil end
   local ses = data.sessions[data.last_active]
   return ses and ses.dir or nil
+end
+
+--- Return the previously active session (the one with the highest
+--- last_active_ts timestamp that isn't the currently active one).
+--- Validates that the saved directory still exists on disk.
+--- @return table|nil  {name, dir}
+function M.get_previous()
+  local data = read_file()
+  local best_name, best_ts = nil, ''
+
+  for name, ses in pairs(data.sessions) do
+    if name ~= data.last_active and ses.last_active_ts and ses.last_active_ts > best_ts then
+      best_name = name
+      best_ts = ses.last_active_ts
+    end
+  end
+
+  if not best_name then return nil end
+
+  local ses = data.sessions[best_name]
+
+  -- Verify the directory still exists
+  local p = io.popen('test -d "' .. ses.dir .. '" && echo yes')
+  if not p then return nil end
+  local exists = p:read('*l')
+  p:close()
+
+  if exists ~= 'yes' then return nil end
+
+  return { name = best_name, dir = ses.dir }
 end
 
 --- Record the last-focused workspace type for the active session.
@@ -339,7 +398,14 @@ function M.remove(name)
   local data = read_file()
   data.sessions[name] = nil
   if data.last_active == name then
-    data.last_active = next(data.sessions)
+    local next_name = next(data.sessions)
+    if next_name then
+      for _, s in pairs(data.sessions) do
+        s.active = 'false'
+      end
+      data.sessions[next_name].active = 'true'
+    end
+    data.last_active = next_name
   end
   write_file(data)
 end
