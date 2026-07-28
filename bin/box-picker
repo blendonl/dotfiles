@@ -1,0 +1,498 @@
+#!/usr/bin/env bash
+# box-picker — fuzzy-find a git project and enter an ensure-box for it.
+#
+# Scans /mnt/data/{personal,work} for git repos, cross-references them with
+# existing ensure-box state, and shows everything in fzf.  When you pick a
+# project, it launches (or re-enters) an ensure-box with the project's
+# worktree as the working directory.
+#
+# Works outside tmux (attaches directly) and inside tmux (popup → detach →
+# attach to the chosen box).
+
+set -euo pipefail
+
+# Resolve this script's own absolute path up front.  When $0 is a bare name
+# (e.g. "box-picker" found via PATH), the shell spawned by `tmux display-popup`
+# may not have ~/bin in its PATH, so "$0" would fail silently.  Using the
+# resolved absolute path guarantees the command works regardless of PATH.
+SCRIPT_PATH="$(realpath "$0" 2>/dev/null || readlink -f "$0" 2>/dev/null || echo "$0")"
+
+# ── Container detection ───────────────────────────────────────────────────
+# When running inside a dev container, bridge to the host via tmux so that
+# box state and project discovery run on the host (the same pattern as
+# project-picker).  Useful when you SSH into a container and want to launch
+# a box on the host.
+
+_in_container=false
+[[ -n "${CONTAINER_ID:-}" ]] && _in_container=true
+[[ -n "${DISTROBOX_ENTER:-}" ]] && _in_container=true
+[[ -f /run/.containerenv ]] && _in_container=true
+
+if $_in_container; then
+    if [[ -z "${TMUX:-}" ]]; then
+        echo "ERROR: Running inside a container but outside tmux." >&2
+        echo "       'box-picker' needs a tmux session to bridge to the host." >&2
+        echo "       Run it from inside a tmux session, or directly on the host." >&2
+        exit 1
+    fi
+    # ${TMUX%%,*} extracts the socket path from "path,pid,clientid".
+    # Set BOX_PICKER_POPUP=1 so the host-side instance skips popup-in-popup
+    # and runs fzf directly inside the display-popup.
+    exec tmux -S "${TMUX%%,*}" display-popup -h 30 -w 90 -E \
+        "BOX_PICKER_POPUP=1 ${SCRIPT_PATH} $*"
+fi
+
+BOX_STATE_DIR="/tmp/ensure-box"
+TMUX_SOCKET_DIR="/tmp/tmux-ensure-box"
+PROJECT_ROOTS=("/mnt/data/personal" "/mnt/data/work")
+
+# How deep below a project root a repo may sit.  A directory at this depth is
+# still checked for .git, so this matches the old `find -maxdepth 5`.
+WALK_MAXDEPTH=4
+
+# ── Debug: profile phases ──────────────────────────────────────────────────
+PROFILE="${BOX_PICKER_PROFILE:-0}"
+_now_ms() { date +%s%3N; }
+_profile() {
+    if [[ "$PROFILE" == "1" ]]; then
+        local now tag elapsed
+        now=$(_now_ms)
+        tag="${1:-}"
+        if [[ -n "${_profile_last:-}" ]]; then
+            elapsed=$(( now - _profile_last ))
+            printf '[box-picker] %-30s %6d ms\n' "${tag}" "${elapsed}" >&2
+        else
+            printf '[box-picker] %-30s %6s\n' "${tag}" "start" >&2
+        fi
+        _profile_last="$now"
+    fi
+}
+
+# Anchor the clock here.  Without this the first _profile call is the one at
+# the end of load_box_states, which prints "start" instead of an elapsed time —
+# so load_box_states (podman + tmux per box) was silently unmeasured and the
+# phase timings never added up to the observed runtime.
+_profile "startup"
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+resolve_absolute() {
+    local base="$1" rel="$2"
+    if [[ "$rel" == /* ]]; then
+        echo "$rel"
+    else
+        realpath "$base/$rel" 2>/dev/null \
+            || readlink -f "$base/$rel" 2>/dev/null \
+            || { cd "$base" && cd "$rel" 2>/dev/null && pwd -P; } \
+            || echo "$base/$rel"
+    fi
+}
+
+# ── Git project discovery ──────────────────────────────────────────────────
+
+walk_git_paths() {
+    # Emit "<dir>/.git" for every repo under PROJECT_ROOTS, breadth-first.
+    #
+    # PROJECT_ROOTS live on an NFS mount, so every directory descended into is
+    # a network round-trip.  The `find -maxdepth 5` this replaced walked ~9500
+    # directories — 3.7 s cold, 230 ms warm — to turn up 43 repos, because it
+    # kept descending *through* each project's source tree looking for more.
+    #
+    # A directory holding a .git is a project, so record it and never look
+    # inside: 39 directories read instead of 9500, same depth reach, and the
+    # emitted set is identical.  Nothing is lost because the only .git entries
+    # below that boundary were linked worktrees under .worktrees/ and
+    # .claude/worktrees/, every one of which discover_projects already
+    # collapsed back onto its parent repo.
+    local -a queue=("${PROJECT_ROOTS[@]}") next
+    local depth=0 dir sub
+
+    while (( ${#queue[@]} )); do
+        next=()
+        for dir in "${queue[@]}"; do
+            if [[ -e "$dir/.git" ]]; then
+                printf '%s\n' "$dir/.git"
+                continue
+            fi
+            (( depth < WALK_MAXDEPTH )) || continue
+            # */ matches directories only; on no match it stays literal, which
+            # the -d test rejects (cheaper than toggling nullglob per level).
+            # -L is skipped to match find's default of not following symlinks:
+            # descending them would risk loops and duplicate discovery.
+            for sub in "$dir"/*/; do
+                sub="${sub%/}"
+                [[ -d "$sub" && ! -L "$sub" ]] || continue
+                case "${sub##*/}" in
+                    node_modules|.venv|.cache|target|vendor) continue ;;
+                esac
+                next+=("$sub")
+            done
+        done
+        queue=("${next[@]}")
+        # Not (( depth++ )): that evaluates to the *old* value, so the first
+        # increment returns 0 and set -e aborts the walk.
+        depth=$(( depth + 1 ))
+    done
+}
+
+discover_projects() {
+    # Walks PROJECT_ROOTS for git repos, deduplicates by shared git dir,
+    # and emits TSV lines:
+    #   DISPLAY<TAB>box_name<TAB>worktree_path
+    #
+    # DISPLAY is like "personal/dotfiles", box_name is
+    # "{display_with_slashes_replaced}".
+
+    _profile "discover: start"
+    # The =() matters: under set -u a declared-but-never-assigned associative
+    # array is "unbound", so ${#seen_shared[@]} below would abort the script
+    # whenever the walk turned up no repos at all.
+    declare -A seen_shared=()  # shared-git-dir → "display<TAB>box<TAB>wt"
+    local _repo_count=0
+
+    # Everything in this loop is a bash builtin.  It used to fork dirname,
+    # a subshell + `git rev-parse --git-common-dir`, and realpath for each of
+    # ~50 repos, which was ~1.1 s — the bulk of the picker's startup time.
+    while IFS= read -r gitpath; do
+        local wt_dir shared gd
+        wt_dir="${gitpath%/.git}"
+
+        if [[ -d "$gitpath" ]]; then
+            # Primary worktree: <repo>/.git is the shared git dir itself.
+            shared="$gitpath"
+        else
+            # Linked worktree: <wt>/.git is a file "gitdir: <repo>/.git/worktrees/<n>".
+            # Submodules point into <repo>/.git/modules/<n> and are left alone,
+            # collapsing onto the parent repo exactly as rev-parse did.
+            gd=""
+            # read reports EOF (non-zero) on a file with no trailing newline
+            # even though it did assign, so judge on the value, not the status.
+            read -r _ gd < "$gitpath" 2>/dev/null || true
+            [[ -z "$gd" ]] && continue
+            if [[ "$gd" != /* ]]; then
+                # Relative gitdir (rare): fall back to asking git.
+                gd=$(cd "$wt_dir" && git rev-parse --git-common-dir 2>/dev/null) || continue
+                gd=$(resolve_absolute "$wt_dir" "$gd")
+            fi
+            shared="${gd%/worktrees/*}"
+        fi
+
+        # Dedup: only keep the first worktree we see per shared git dir.
+        [[ -n "${seen_shared[$shared]:-}" ]] && continue
+
+        # Prefer the primary worktree over whichever one find happened to hit
+        # first: the shared git dir is "<repo>/.git", so its parent is the repo
+        # root.  Without this a linked worktree under .worktrees/ or
+        # .claude/worktrees/ can win the race and the box opens on a stale
+        # branch directory instead of the project's main checkout.
+        if [[ "$shared" == */.git && -d "${shared%/.git}" ]]; then
+            wt_dir="${shared%/.git}"
+        fi
+
+        # Build display name relative to the project root.
+        local display=""
+        for root in "${PROJECT_ROOTS[@]}"; do
+            if [[ "$shared" == "$root/"* ]]; then
+                local rel="${shared#"$root/"}"
+                display="${root##*/}/${rel%%/.git*}"
+                break
+            fi
+        done
+        if [[ -z "$display" ]]; then
+            local repo_root="${shared%/*}"   # strip "/.git"
+            display="${repo_root##*/}"
+        fi
+
+        local box_name="${display//\//-}"
+
+        seen_shared[$shared]="${display}"$'\t'"${box_name}"$'\t'"${wt_dir}"
+    done < <(walk_git_paths)
+    _profile "discover: walk-done (${#seen_shared[@]} repos)"
+
+    # Emit the primary worktree entries.
+    for entry in "${seen_shared[@]}"; do
+        printf '%s\n' "$entry"
+    done | sort -u
+}
+
+# ── Box state lookup ───────────────────────────────────────────────────────
+
+declare -A BOX_STATE_CACHE
+
+load_box_states() {
+    # Pre-load all existing box state into an associative array keyed by box
+    # name: "IP<TAB>tmux_status<TAB>browser_tag"
+    BOX_STATE_CACHE=()
+
+    if [[ ! -d "${BOX_STATE_DIR}" ]]; then
+        _profile "load-states: no dir, skip"
+        return 0
+    fi
+
+    local _box_count=0
+    for state_file in "${BOX_STATE_DIR}"/*/state; do
+        [[ -f "${state_file}" ]] || continue
+
+        local BOX_NAME="" BOX_IP=""
+        # shellcheck source=/dev/null
+        source "${state_file}"
+        [[ -z "${BOX_NAME}" ]] && continue
+
+        local ip="${BOX_IP:-host}"
+        local tmux_s="off"
+        local browser_s=""
+
+        local sock="${TMUX_SOCKET_DIR}/${BOX_NAME}/tmux.sock"
+        if tmux -S "${sock}" has-session -t "${BOX_NAME}" 2>/dev/null; then
+            local wins
+            wins=$(tmux -S "${sock}" list-windows -t "${BOX_NAME}" 2>/dev/null | wc -l)
+            tmux_s="tmux:${wins}w"
+        fi
+
+        if podman container inspect "${BOX_NAME}-browser" \
+            --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+            browser_s="browser"
+        fi
+
+        BOX_STATE_CACHE["${BOX_NAME}"]="${ip}"$'\t'"${tmux_s}"$'\t'"${browser_s}"
+        _box_count=$((_box_count + 1))
+    done
+    _profile "load-states: ${_box_count} boxes"
+}
+
+box_state_for() {
+    # Print "IP<TAB>tmux_status<TAB>browser_tag" or "--<TAB>--<TAB>".
+    local box_name="$1"
+    if [[ -n "${BOX_STATE_CACHE[$box_name]:-}" ]]; then
+        printf '%s\n' "${BOX_STATE_CACHE[$box_name]}"
+    else
+        printf '%s\t%s\t%s\n' "--" "--" ""
+    fi
+}
+
+# ── Main ───────────────────────────────────────────────────────────────────
+
+main() {
+    # ── --list: machine-readable project/box listing (for SSH queries) ────
+    if [[ "${1:-}" == "--list" ]]; then
+        load_box_states
+
+        declare -A emitted_boxes
+
+        # 1. Git projects.
+        while IFS=$'\t' read -r display box_name wt_path; do
+            [[ -z "${box_name}" ]] && continue
+            emitted_boxes["${box_name}"]=1
+
+            local state
+            state=$(box_state_for "${box_name}")
+            local ip tmux_s browser_s
+            IFS=$'\t' read -r ip tmux_s browser_s <<< "${state}"
+
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+                "${display}" "${box_name}" "${wt_path}" "${ip}" "${tmux_s}" "${browser_s}"
+        done < <(discover_projects)
+
+        # 2. Existing ensure-boxes with no matching git project (orphan boxes).
+        for box_name in "${!BOX_STATE_CACHE[@]}"; do
+            [[ -n "${emitted_boxes[$box_name]:-}" ]] && continue
+            local state="${BOX_STATE_CACHE[$box_name]}"
+            local ip tmux_s browser_s
+            IFS=$'\t' read -r ip tmux_s browser_s <<< "${state}"
+
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+                "${box_name}" "${box_name}" "--" "${ip}" "${tmux_s}" "${browser_s}"
+        done | sort -t$'\t' -k1
+
+        exit 0
+    fi
+
+    # ── --ensure: launch/reconnect a box by name (for SSH / scripting) ────
+    if [[ "${1:-}" == "--ensure" ]]; then
+        local target="${2:-}"
+        [[ -z "${target}" ]] && {
+            echo "ERROR: --ensure requires a box name" >&2
+            exit 1
+        }
+
+        # Sanitize: replace / with - (display names like "personal/foo" use
+        # slashes, but netns names and box identifiers must use dashes).
+        target="${target//\//-}"
+
+        # Optional --dir override.
+        local ensure_dir=""
+        if [[ "${3:-}" == "--dir" ]]; then
+            ensure_dir="${4:-}"
+            [[ -z "${ensure_dir}" ]] && {
+                echo "ERROR: --dir requires a path" >&2
+                exit 1
+            }
+        fi
+
+        load_box_states
+
+        # If no explicit --dir, try to discover the worktree from git projects.
+        if [[ -z "${ensure_dir}" ]]; then
+            while IFS=$'\t' read -r display box_name wt_path; do
+                if [[ "${box_name}" == "${target}" ]]; then
+                    ensure_dir="${wt_path}"
+                    break
+                fi
+            done < <(discover_projects)
+        fi
+
+        if [[ -n "${ensure_dir}" && "${ensure_dir}" != "--" ]]; then
+            exec sudo /home/notpc/bin/ensure-box --browser --dir "${ensure_dir}" "${target}"
+        else
+            exec sudo /home/notpc/bin/ensure-box --browser "${target}"
+        fi
+    fi
+
+    if ! command -v fzf >/dev/null 2>&1; then
+        echo "ERROR: fzf is required.  Install with: sudo pacman -S fzf" >&2
+        exit 1
+    fi
+
+    # ── Popup mode (inside tmux) ──────────────────────────────────────────
+    if [[ -n "${TMUX:-}" && "${BOX_PICKER_POPUP:-}" != "1" ]]; then
+        local tmpfile
+        tmpfile=$(mktemp /tmp/box-picker.XXXXXX)
+        tmux display-popup -h 30 -w 90 -E \
+            "BOX_PICKER_POPUP=1 ${SCRIPT_PATH} --write ${tmpfile}" 2>/dev/null || true
+
+        local chosen
+        chosen=$(cat "${tmpfile}" 2>/dev/null || true)
+        rm -f "${tmpfile}"
+
+        if [[ -n "${chosen}" ]]; then
+            local box_name worktree
+            box_name=$(echo "${chosen}" | awk -F'\t' '{print $1}')
+            worktree=$(echo "${chosen}" | awk -F'\t' '{print $2}')
+
+            # Escape single quotes for detach-client -E (runs via sh -c).
+            local wt_esc box_esc
+            wt_esc="${worktree//\'/\'\\\'\'}"
+            box_esc="${box_name//\'/\'\\\'\'}"
+            if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
+                tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
+            else
+                tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser '${box_esc}'"
+            fi
+        fi
+        exit 0
+    fi
+
+    # ── Collect data ──────────────────────────────────────────────────────
+    _profile "main: interactive start"
+    load_box_states
+    _profile "main: after load_box_states"
+
+    # Build fzf input: one line per discovered project + existing boxes that
+    # have no git project.
+    #
+    # Columns (tab-separated):
+    #   1. display line (for fzf --with-nth)
+    #   2. box_name
+    #   3. worktree path (or "--")
+
+    local fzf_input
+    fzf_input=$(mktemp /tmp/box-picker-input.XXXXXX)
+
+    # Track which box names we've emitted (to find orphans later).
+    declare -A emitted_boxes
+
+    # 1. Git projects.
+    while IFS=$'\t' read -r display box_name wt_path; do
+        [[ -z "${box_name}" ]] && continue
+        emitted_boxes["${box_name}"]=1
+
+        local state
+        state=$(box_state_for "${box_name}")
+        local ip tmux_s browser_s
+        IFS=$'\t' read -r ip tmux_s browser_s <<< "${state}"
+
+        printf '%-40s %-16s %-10s %-7s\t%s\t%s\n' \
+            "${display}" "${ip}" "${tmux_s}" "${browser_s}" \
+            "${box_name}" "${wt_path}" >> "${fzf_input}"
+    done < <(discover_projects)
+    _profile "main: after discover+build-input"
+
+    # 2. Existing ensure-boxes that have no matching git project (orphan boxes).
+    for box_name in "${!BOX_STATE_CACHE[@]}"; do
+        [[ -n "${emitted_boxes[$box_name]:-}" ]] && continue
+        local state="${BOX_STATE_CACHE[$box_name]}"
+        local ip tmux_s browser_s
+        IFS=$'\t' read -r ip tmux_s browser_s <<< "${state}"
+
+        printf '%-40s %-16s %-10s %-7s\t%s\t%s\n' \
+            "${box_name}" "${ip}" "${tmux_s}" "${browser_s}" \
+            "${box_name}" "--" >> "${fzf_input}"
+    done
+
+    if [[ ! -s "${fzf_input}" ]]; then
+        echo "No projects or boxes found." >&2
+        echo "Add projects to ${PROJECT_ROOTS[*]} or create a box with:" >&2
+        echo "  sudo ensure-box <name>" >&2
+        rm -f "${fzf_input}"
+        exit 0
+    fi
+
+    # ── fzf ───────────────────────────────────────────────────────────────
+    _profile "main: before fzf"
+    local header
+    header=$(printf '%-40s %-16s %-10s %-7s' \
+        "PROJECT" "IP" "TMUX" "BROWSER")
+
+    local selection
+    selection=$(
+        sort -t$'\t' -k1 "${fzf_input}" \
+            | fzf --prompt="Box> " \
+                  --header="${header}" \
+                  --height=30 \
+                  --delimiter=$'\t' \
+                  --with-nth=1 \
+                  --preview="printf '%s\n' 'Enter to launch/reconnect  |  Ctrl-B d to detach'" \
+                  --preview-window=bottom:1
+    )
+    rm -f "${fzf_input}"
+
+    if [[ -z "${selection}" ]]; then
+        exit 0
+    fi
+
+    local box_name worktree
+    box_name=$(echo "${selection}" | awk -F'\t' '{print $2}')
+    worktree=$(echo "${selection}" | awk -F'\t' '{print $3}')
+
+    # ── Handle --write mode (running inside popup) ────────────────────────
+    if [[ "${1:-}" == "--write" ]]; then
+        printf '%s\t%s\n' "${box_name}" "${worktree}" > "${2:?expected temp file}"
+        exit 0
+    fi
+
+    # ── Enter the box ─────────────────────────────────────────────────────
+    # When running inside a display-popup (BOX_PICKER_POPUP=1), we can't just
+    # exec ensure-box directly — it would run inside the popup's pane context
+    # and any tmux commands it issues would target the popup, not the original
+    # client window.  Use detach-client -E instead so tmux detaches this
+    # client from the current session and runs ensure-box, which will attach
+    # to the new box's session.
+    if [[ -n "${TMUX:-}" ]]; then
+        local wt_esc box_esc
+        wt_esc="${worktree//\'/\'\\\'\'}"
+        box_esc="${box_name//\'/\'\\\'\'}"
+        if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
+            tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
+        else
+            tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser '${box_esc}'"
+        fi
+    else
+        if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
+            exec sudo /home/notpc/bin/ensure-box --browser --dir "${worktree}" "${box_name}"
+        else
+            exec sudo /home/notpc/bin/ensure-box --browser "${box_name}"
+        fi
+    fi
+}
+
+main "$@"
