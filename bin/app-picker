@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# app-picker – fuzzy switch between apps in a monorepo (./apps/*, ./packages/*).
+#
+# Designed for monorepo projects: each app gets its own tmux session but
+# shares the same dev container as the parent worktree session.
+#
+# Session naming convention:
+#   project~branch               ← worktree session (project-picker)
+#   project~branch/app-name      ← app session (this script)
+#   box-name                     ← box session (box-picker, per-box server)
+#   box-name/app-name            ← app session (this script)
+#   box-name[@net]               ← box session (box-lite, default server)
+#   box-name[@net]/app-name      ← app session (this script)
+#
+# Architecture:
+#   This script ALWAYS runs on the host.  If invoked from inside a container,
+#   it uses the shared tmux socket ($TMUX) to re-exec itself on the host
+#   via "tmux display-popup -E".
+
+set -euo pipefail
+
+# ── PATH — non-login shells may have sparse PATH ────────────────────────
+export PATH="/usr/local/bin:/usr/bin:$HOME/.local/bin:$HOME/bin:$PATH"
+
+# ── Container → host bridge ─────────────────────────────────────────────
+_in_container=false
+[[ -n "${CONTAINER_ID:-}" ]] && _in_container=true
+[[ -n "${DISTROBOX_ENTER:-}" ]] && _in_container=true
+[[ -f /run/.containerenv ]] && _in_container=true
+
+if $_in_container; then
+    if [[ -z "${TMUX:-}" ]]; then
+        echo "ERROR: Running inside a container but outside tmux." >&2
+        echo "       'app-picker' needs a tmux session to bridge to the host." >&2
+        echo "       Run it from inside a tmux session, or directly on the host." >&2
+        exit 1
+    fi
+    # ${TMUX%%,*} extracts the socket path from "path,pid,clientid"
+    exec tmux -S "${TMUX%%,*}" display-popup -E "$0" "$@"
+fi
+
+# ── Dependencies ────────────────────────────────────────────────────────
+for cmd in git fzf tmux; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: required command '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+
+# ── App discovery ───────────────────────────────────────────────────────
+# Monorepo convention: every directory directly under apps/ or packages/ is
+# an app.  Prints one label per app, relative to the worktree ("apps/api").
+discover_apps() {
+    local wt_dir="$1" dir
+    for dir in "$wt_dir"/apps/*/ "$wt_dir"/packages/*/; do
+        [[ -d "$dir" ]] || continue      # an unmatched glob stays literal
+        dir="${dir%/}"
+        printf '%s\n' "${dir#"$wt_dir"/}"
+    done | sort
+}
+
+# The worktree root — the "main" app — is offered as an entry of its own, so
+# the picker also takes you back to the project's own session instead of only
+# further into a sub-app.  Every real app label contains a "/", so this
+# sentinel can never collide with one.
+ROOT_LABEL='. (root)'
+
+# Resolve a picked label to the directory it stands for.
+label_dir() {
+    local wt_dir="$1" label="$2"
+    if [[ "$label" == "$ROOT_LABEL" ]]; then
+        printf '%s\n' "$wt_dir"
+    else
+        printf '%s/%s\n' "$wt_dir" "$label"
+    fi
+}
+
+# Resolve a picked label to a session name.  The root *is* the base session —
+# the box or worktree session itself — not a "<base>/<app>" child of it, so
+# picking it switches back to the session the project started in.
+label_session() {
+    local base="$1" label="$2"
+    if [[ "$label" == "$ROOT_LABEL" ]]; then
+        printf '%s\n' "$base"
+    else
+        printf '%s/%s\n' "$base" "${label//\//-}"    # "apps/api" → "apps-api"
+    fi
+}
+
+# Prints the app the user picked, or nothing if they cancelled.  Exits if the
+# worktree has no apps at all — the root alone is just the session you are
+# already in, so there is nothing to pick from.  Called from a command
+# substitution, so that exit only ends the subshell; the caller sees the
+# non-zero status and `set -e` stops the script there.
+choose_app() {
+    local wt_dir="$1"
+    local apps=()
+    mapfile -t apps < <(discover_apps "$wt_dir")
+
+    if ((${#apps[@]} == 0)); then
+        echo "No app/package directories found." >&2
+        echo "Looked in:" >&2
+        echo "  ${wt_dir}/apps/" >&2
+        echo "  ${wt_dir}/packages/" >&2
+        exit 1
+    fi
+
+    printf '%s\n' "$ROOT_LABEL" "${apps[@]}" | fzf --prompt="App> " || true
+}
+
+# ── Ensure-box context detection ──────────────────────────────────────────
+# Detect if we're inside an ensure-box tmux session (socket at
+# /tmp/tmux-ensure-box/<box>/tmux.sock).  In that case the session name is
+# just <box_name> (not project~branch), there are no containers, and shells
+# run directly on the host via sudo -u notpc.
+if [[ -n "${TMUX:-}" && "${TMUX%%,*}" == /tmp/tmux-ensure-box/*/tmux.sock ]]; then
+    BOX_SOCKET="${TMUX%%,*}"
+    BOX_NAME=$(basename "$(dirname "$BOX_SOCKET")")
+
+    # Find worktree root from the current session's CWD.
+    CWD=$(tmux -S "$BOX_SOCKET" display-message -p '#{pane_current_path}' 2>/dev/null)
+    WT_DIR=$(cd "$CWD" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || {
+        echo "ERROR: could not find git root from '$CWD'." >&2
+        exit 1
+    }
+
+    # ── Pick an app ───────────────────────────────────────────────────
+    SELECTION=$(choose_app "$WT_DIR")
+    [[ -z "$SELECTION" ]] && exit 0
+    APP_DIR=$(label_dir "$WT_DIR" "$SELECTION")
+
+    # ── Session management ─────────────────────────────────────────────
+    # Picking the root resolves to the box session itself, which already
+    # exists — the has-session check below then just switches to it.
+    APP_SESSION=$(label_session "$BOX_NAME" "$SELECTION")
+
+    # "=" forces an exact match.  Without it tmux falls back to prefix
+    # matching, and the root session's name is a prefix of every app session
+    # under it ("<box>" vs "<box>/apps-api") — so a missing root would resolve
+    # to an app session instead of being created.
+    if ! tmux -S "$BOX_SOCKET" has-session -t "=${APP_SESSION}" 2>/dev/null; then
+        tmux -S "$BOX_SOCKET" new-session -d -s "$APP_SESSION" \
+            -c "$APP_DIR" \
+            /bin/sh -c "cd '${APP_DIR}' && exec sudo -u notpc /usr/bin/zsh -l"
+
+        tmux -S "$BOX_SOCKET" set-option -t "$APP_SESSION" default-command \
+            "cd '${APP_DIR}' 2>/dev/null || true; exec sudo -u notpc /usr/bin/zsh -l"
+    fi
+
+    tmux -S "$BOX_SOCKET" switch-client -t "=${APP_SESSION}"
+    exit 0
+fi
+
+# ── box-lite context detection ────────────────────────────────────────────
+# box-lite keeps every project as a plain session on the *default* tmux
+# server — "<box>" for the shared (host-network) session and "<box>@net" for
+# the isolated one — so there is no per-box socket to key off and no
+# project~branch name to parse.  Anything on this server that is not a
+# project-picker session is handled here; a session that turns out not to sit
+# in a git worktree is rejected below.
+#
+# The app session inherits the box session's default-command verbatim.  For an
+# isolated session that is box-lite's netns entry command, which is what keeps
+# the app inside the box: every pane of the app session re-enters the netns
+# just like the box session's own panes.  For a shared session it is empty and
+# the pane is a plain host shell — again matching box-lite.
+LITE_SESSION=""
+if [[ -n "${TMUX:-}" ]]; then
+    LITE_SOCKET="${TMUX%%,*}"
+    LITE_SESSION=$(tmux -S "$LITE_SOCKET" display-message -p '#S' 2>/dev/null || true)
+fi
+
+if [[ -n "$LITE_SESSION" && "$LITE_SESSION" != *~* ]]; then
+    # Already in an app session ("<box>@net/apps-web")?  Strip the app part so
+    # the picker still offers the whole box.
+    BOX_SESSION="${LITE_SESSION%%/*}"
+
+    # The box session sits at the worktree root; an app session's cwd is
+    # already one level into it.  Both resolve to the same repo, but prefer the
+    # box session and fall back to whatever pane we were run from.
+    CWD=$(tmux -S "$LITE_SOCKET" display-message -t "$BOX_SESSION" \
+        -p '#{pane_current_path}' 2>/dev/null || true)
+    [[ -z "$CWD" ]] && CWD=$(tmux -S "$LITE_SOCKET" \
+        display-message -p '#{pane_current_path}' 2>/dev/null || true)
+
+    WT_DIR=$(cd "$CWD" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || {
+        echo "ERROR: no git worktree found from '$CWD'." >&2
+        echo "       Session '${LITE_SESSION}' does not look like a project session." >&2
+        exit 1
+    }
+
+    SELECTION=$(choose_app "$WT_DIR")
+    [[ -z "$SELECTION" ]] && exit 0
+
+    APP_DIR=$(label_dir "$WT_DIR" "$SELECTION")
+    # The root resolves to the box session itself, so picking it switches back
+    # to the box rather than creating anything.
+    APP_SESSION=$(label_session "$BOX_SESSION" "$SELECTION")
+
+    if ! tmux -S "$LITE_SOCKET" has-session -t "=${APP_SESSION}" 2>/dev/null; then
+        # show-options/set-option take a *pane* target, which does not accept
+        # the "=" exact-match prefix used for has-session and switch-client.
+        ENTER_CMD=$(tmux -S "$LITE_SOCKET" show-options -t "$BOX_SESSION" \
+            -v default-command 2>/dev/null || true)
+        # If the box session has since been killed, inherit from the app
+        # session we were called from instead, so an isolated app never
+        # silently falls back to the host network.
+        [[ -z "$ENTER_CMD" ]] && ENTER_CMD=$(tmux -S "$LITE_SOCKET" \
+            show-options -t "$LITE_SESSION" -v default-command 2>/dev/null || true)
+
+        if [[ -n "$ENTER_CMD" ]]; then
+            tmux -S "$LITE_SOCKET" new-session -d -s "$APP_SESSION" \
+                -c "$APP_DIR" "$ENTER_CMD"
+            tmux -S "$LITE_SOCKET" set-option -t "$APP_SESSION" \
+                default-command "$ENTER_CMD"
+        else
+            tmux -S "$LITE_SOCKET" new-session -d -s "$APP_SESSION" -c "$APP_DIR"
+        fi
+    fi
+
+    tmux -S "$LITE_SOCKET" switch-client -t "=${APP_SESSION}"
+    exit 0
+fi
+
+# ── Helpers ─────────────────────────────────────────────────────────────
+sanitise_branch() {
+    local b="$1"
+    b="${b#\[detached\] }"
+    echo "$b" | tr '/ ' '--' | sed 's/[^a-zA-Z0-9_.-]//g'
+}
+
+# ── Determine context from current tmux session ─────────────────────────
+if [[ -z "${TMUX:-}" ]]; then
+    echo "ERROR: not inside a tmux session." >&2
+    echo "       Run 'project-picker' first to start a project session," >&2
+    echo "       then run 'app-picker' from inside that session." >&2
+    exit 1
+fi
+
+SOCKET_PATH="${TMUX%%,*}"
+SESSION_NAME=$(tmux display-message -p '#S')
+
+# Parse session name: project~branch[/app-name]
+if [[ "$SESSION_NAME" != *~* ]]; then
+    echo "ERROR: session '$SESSION_NAME' does not follow 'project~branch' naming." >&2
+    echo "       Were you entered via project-picker?" >&2
+    exit 1
+fi
+
+PROJECT_NAME="${SESSION_NAME%%~*}"          # "personal-myapp"
+REST="${SESSION_NAME#*~}"                   # "main" or "main/apps-api"
+
+# Base branch is everything before the first '/' (if present).
+# For a worktree session "personal-myapp~main" → base branch = "main"
+# For an app session "personal-myapp~main/apps-api" → base branch = "main"
+BASE_BRANCH="${REST%%/*}"
+SAFE_BRANCH=$(sanitise_branch "$BASE_BRANCH")
+BOX_NAME="${PROJECT_NAME}-${SAFE_BRANCH}"
+
+# ── Find worktree root ──────────────────────────────────────────────────
+# Walk up from the current session's CWD to the git root.
+CWD=$(tmux -S "$SOCKET_PATH" display-message -t "$SESSION_NAME" -p '#{pane_current_path}' 2>/dev/null)
+WT_DIR=$(cd "$CWD" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "ERROR: could not find git root from '$CWD'." >&2
+    exit 1
+}
+
+# ── Pick an app ─────────────────────────────────────────────────────────
+SELECTION=$(choose_app "$WT_DIR")
+[[ -z "$SELECTION" ]] && exit 0
+APP_DIR=$(label_dir "$WT_DIR" "$SELECTION")
+
+# ── Build session name & locate compose file ────────────────────────────
+# Picking the root resolves to the worktree session project-picker created,
+# so it switches back there instead of opening an app session.
+APP_SESSION=$(label_session "${PROJECT_NAME}~${BASE_BRANCH}" "$SELECTION")
+
+COMPOSE_FILE="/tmp/compose/${BOX_NAME}/compose.yml"
+if [[ ! -f "$COMPOSE_FILE" ]]; then
+    echo "ERROR: compose file not found at '$COMPOSE_FILE'." >&2
+    echo "       The dev container may not have been started yet." >&2
+    exit 1
+fi
+
+# ── Compute container-side paths ────────────────────────────────────────
+# The compose file mounts the worktree root (WT_DIR) at /workspace in the
+# container.  Derive the container path for the selected app directory so
+# we don't depend on the /mnt/data rslave mount being available.
+# e.g. WT_DIR=/mnt/data/personal/cadence, APP_DIR=…/cadence/apps/api
+#      → CONTAINER_APP_DIR=/workspace/apps/api
+# The root is the mount point itself; stripping would leave the host path.
+if [[ "$APP_DIR" == "$WT_DIR" ]]; then
+    CONTAINER_APP_DIR="/workspace"
+else
+    CONTAINER_APP_DIR="/workspace/${APP_DIR#"$WT_DIR"/}"
+fi
+
+# ── Ensure the host tmux server is running ──────────────────────────────
+tmux -S "$SOCKET_PATH" start-server 2>/dev/null || true
+
+# ── Create session on the host tmux server if missing ───────────────────
+# Fallback chain inside the container:
+#   1. /workspace/app-path   (guaranteed by the compose volume mount)
+#   2. $1 (host path)        (works iff rslave mount is propagated)
+#   3. /home/notpc           (always mounted)
+# zsh always execs — a failed cd must not kill the pane.
+# "=" forces an exact match; without it the root session's name would prefix-
+# match one of its own app sessions instead of being created.
+if ! tmux -S "$SOCKET_PATH" has-session -t "=${APP_SESSION}" 2>/dev/null; then
+    tmux -S "$SOCKET_PATH" new-session -d -s "$APP_SESSION" \
+        -c "$APP_DIR" \
+        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
+
+    tmux -S "$SOCKET_PATH" set-option -t "$APP_SESSION" default-command \
+        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
+
+    tmux -S "$SOCKET_PATH" set-window-option -t "$APP_SESSION" remain-on-exit on 2>/dev/null || true
+fi
+
+# ── Switch client ───────────────────────────────────────────────────────
+tmux -S "$SOCKET_PATH" switch-client -t "=${APP_SESSION}"
