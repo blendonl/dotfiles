@@ -166,6 +166,12 @@ discover_projects() {
     # Emits TSV: DISPLAY <TAB> box_name <TAB> worktree_path, one line per repo
     # (deduplicated by shared git dir, so worktrees collapse onto their repo).
     #
+    # DISPLAY keeps the project root ("personal/cadence") so the picker can
+    # still tell personal from work apart.  box_name drops it ("cadence"),
+    # because that name is the tmux session you look at all day.  Everything
+    # below the root is kept, so personal/raw/rawaccel is "raw-rawaccel" and
+    # never collides with personal/rawaccel.
+    #
     # Hot path: ~50 repos.  Everything here is a bash builtin — no dirname,
     # realpath, basename or `git rev-parse` per repo, since forking three
     # processes per repo cost about a second all by itself.
@@ -173,9 +179,12 @@ discover_projects() {
     # array is "unbound", so iterating it below would abort the script whenever
     # the walk turned up no repos at all.
     declare -A seen_shared=()
+    # box_name → how many repos want it, so a name two roots both claim can be
+    # spotted after the walk and handed back its root prefix.
+    declare -A name_count=()
 
     while IFS= read -r gitpath; do
-        local wt_dir shared display="" root rel gd
+        local wt_dir shared display="" name="" root rel gd
 
         wt_dir="${gitpath%/.git}"
         if [[ -d "$gitpath" ]]; then
@@ -211,20 +220,29 @@ discover_projects() {
         for root in "${PROJECT_ROOTS[@]}"; do
             if [[ "$shared" == "$root/"* ]]; then
                 rel="${shared#"$root/"}"
-                display="${root##*/}/${rel%%/.git*}"
+                rel="${rel%%/.git*}"    # "cadence", or "raw/rawaccel" if nested
+                display="${root##*/}/${rel}"
+                name="${rel//\//-}"
                 break
             fi
         done
         if [[ -z "$display" ]]; then
             rel="${shared%/*}"          # strip "/.git"
             display="${rel##*/}"        # basename of the repo root
+            name="$display"
         fi
 
-        seen_shared[$shared]="${display}"$'\t'"${display//\//-}"$'\t'"${wt_dir}"
+        name_count["$name"]=$(( ${name_count["$name"]:-0} + 1 ))
+        seen_shared[$shared]="${display}"$'\t'"${name}"$'\t'"${wt_dir}"
     done < <(walk_git_paths)
 
+    local entry d n w
     for entry in "${seen_shared[@]}"; do
-        printf '%s\n' "$entry"
+        IFS=$'\t' read -r d n w <<< "$entry"
+        # personal/foo and work/foo would otherwise share one session, one
+        # netns and one IP; keep the root on both so they stay distinct.
+        (( ${name_count[$n]:-0} > 1 )) && n="${d//\//-}"
+        printf '%s\t%s\t%s\n' "$d" "$n" "$w"
     done | sort -u
 }
 
@@ -481,6 +499,7 @@ cmd_ensure() {
     local target="${1:-}" isolate=false dir=""
     shift || true
     [[ -z "$target" ]] && die "--ensure requires a project or box name"
+    local raw="$target"
     target="${target//\//-}"
 
     while [[ $# -gt 0 ]]; do
@@ -491,10 +510,17 @@ cmd_ensure() {
         esac
     done
 
+    # The box name ("cadence") is matched first, but the display name
+    # ("personal/cadence") is accepted too — that is what the picker lists, and
+    # since box names dropped the root the two forms are no longer the same
+    # string.  A hit rewrites the target so the session comes out short.
     if [[ -z "$dir" ]]; then
         local display box wt
         while IFS=$'\t' read -r display box wt; do
-            [[ "$box" == "$target" ]] && { dir="$wt"; break; }
+            if [[ "$box" == "$target" || "$display" == "$raw" \
+                || "${display//\//-}" == "$target" ]]; then
+                target="$box"; dir="$wt"; break
+            fi
         done < <(discover_projects)
     fi
     [[ -z "$dir" ]] && dir="$HOME"

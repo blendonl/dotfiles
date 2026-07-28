@@ -78,13 +78,24 @@ label_dir() {
 # Resolve a picked label to a session name.  The root *is* the base session —
 # the box or worktree session itself — not a "<base>/<app>" child of it, so
 # picking it switches back to the session the project started in.
+#
+# The apps/ or packages/ container is dropped: "apps/api" → "api", so the
+# session reads "cadence/api" rather than "cadence/apps-api".  It is kept only
+# when both containers hold an app of that name, which would otherwise put two
+# different directories in one session.
 label_session() {
-    local base="$1" label="$2"
+    local base="$1" label="$2" wt_dir="${3:-}"
     if [[ "$label" == "$ROOT_LABEL" ]]; then
         printf '%s\n' "$base"
-    else
-        printf '%s/%s\n' "$base" "${label//\//-}"    # "apps/api" → "apps-api"
+        return
     fi
+
+    local name="${label##*/}" container="${label%%/*}" other
+    if [[ "$label" == */* && -n "$wt_dir" ]]; then
+        [[ "$container" == "apps" ]] && other="packages" || other="apps"
+        [[ -d "${wt_dir}/${other}/${name}" ]] && name="${container}-${name}"
+    fi
+    printf '%s/%s\n' "$base" "$name"
 }
 
 # Prints the app the user picked, or nothing if they cancelled.  Exits if the
@@ -132,7 +143,7 @@ if [[ -n "${TMUX:-}" && "${TMUX%%,*}" == /tmp/tmux-ensure-box/*/tmux.sock ]]; th
     # ── Session management ─────────────────────────────────────────────
     # Picking the root resolves to the box session itself, which already
     # exists — the has-session check below then just switches to it.
-    APP_SESSION=$(label_session "$BOX_NAME" "$SELECTION")
+    APP_SESSION=$(label_session "$BOX_NAME" "$SELECTION" "$WT_DIR")
 
     # "=" forces an exact match.  Without it tmux falls back to prefix
     # matching, and the root session's name is a prefix of every app session
@@ -195,7 +206,7 @@ if [[ -n "$LITE_SESSION" && "$LITE_SESSION" != *~* ]]; then
     APP_DIR=$(label_dir "$WT_DIR" "$SELECTION")
     # The root resolves to the box session itself, so picking it switches back
     # to the box rather than creating anything.
-    APP_SESSION=$(label_session "$BOX_SESSION" "$SELECTION")
+    APP_SESSION=$(label_session "$BOX_SESSION" "$SELECTION" "$WT_DIR")
 
     if ! tmux -S "$LITE_SOCKET" has-session -t "=${APP_SESSION}" 2>/dev/null; then
         # show-options/set-option take a *pane* target, which does not accept
@@ -273,7 +284,7 @@ APP_DIR=$(label_dir "$WT_DIR" "$SELECTION")
 # ── Build session name & locate compose file ────────────────────────────
 # Picking the root resolves to the worktree session project-picker created,
 # so it switches back there instead of opening an app session.
-APP_SESSION=$(label_session "${PROJECT_NAME}~${BASE_BRANCH}" "$SELECTION")
+APP_SESSION=$(label_session "${PROJECT_NAME}~${BASE_BRANCH}" "$SELECTION" "$WT_DIR")
 
 COMPOSE_FILE="/tmp/compose/${BOX_NAME}/compose.yml"
 if [[ ! -f "$COMPOSE_FILE" ]]; then
