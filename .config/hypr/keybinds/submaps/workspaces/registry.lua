@@ -36,13 +36,13 @@ return {
   },
 
   {
-    key =
-    'k',
+    key = 'k',
     spec = {
       workspace = 'name:kovaaks',
       default = false,
-      on_created_empty = 'steam -applaunch 824270 --enable-features=UseOzonePlatform --ozone-platform=wayland '
-    }
+      on_created_empty = 'steam -applaunch 824270 --enable-features=UseOzonePlatform --ozone-platform=wayland'
+    },
+    description = 'Kovaaks',
   },
 
   {
