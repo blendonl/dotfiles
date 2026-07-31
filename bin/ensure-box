@@ -320,8 +320,8 @@ case "${1:-}" in
             echo "[ensure-box] → podman-compose --podman-args '--network ns:${NS_PATH}'" >&2
             exec podman-compose --podman-args "--network ns:${NS_PATH}" "$@"
         elif podman compose version &>/dev/null 2>&1; then
-            echo "[ensure-box] → podman compose (containers share this box's IP)" >&2
-            exec podman compose "$@"
+            echo "[ensure-box] → podman --network ns:${NS_PATH} compose" >&2
+            exec podman --network "ns:${NS_PATH}" compose "$@"
         else
             echo "[ensure-box] WARNING: podman/podman-compose not found — falling back to docker (host IP)." >&2
             exec /usr/bin/docker compose "$@"
