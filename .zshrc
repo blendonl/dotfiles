@@ -92,25 +92,29 @@ zinit light-mode for \
 
 ### End of Zinit's installer chunk
 
+# compinit must run before fzf-tab (per fzf-tab's docs).
+# Deferred compdefs from the turbo block below are replayed via zicdreplay.
+autoload -Uz compinit && compinit
+
+# fzf-tab: load after compinit but before widget-wrapping plugins
+# (autosuggestions, fast-syntax-highlighting) — the wrong order makes
+# completion insert text at the wrong offset, duplicating typed characters.
 zinit light Aloxaf/fzf-tab
 
 zinit snippet OMZ::plugins/git/git.plugin.zsh
 zinit load 'zsh-users/zsh-history-substring-search'
-zinit ice wait atload'_history_substring_search_config'
-zinit ice lucid wait'0'
 zinit light joshskidmore/zsh-fzf-history-search
-
-
-
-
 
 zinit wait lucid light-mode for \
   atinit"zicompinit; zicdreplay" \
       zdharma-continuum/fast-syntax-highlighting \
-  atload"_zsh_autosuggest_start" \
-      zsh-users/zsh-autosuggestions \
   blockf atpull'zinit creinstall -q .' \
       zsh-users/zsh-completions
+
+# Load autosuggestions synchronously (not in turbo mode) so it never races
+# with typing at a fresh prompt — turbo loading was inserting ghost-text
+# suggestions into half-typed commands.
+zinit light zsh-users/zsh-autosuggestions
 
 
 bindkey "^P" up-line-or-search
@@ -140,10 +144,8 @@ export NVM_DIR="$HOME/.nvm"
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 
-
-autoload -U compinit && compinit
-
-
+# NOTE: compinit is already handled by zinit (zicompinit/zicdreplay above);
+# running it again here just slows down shell startup.
 
 export NOTE_PATH="/mnt/data/notes"
 
