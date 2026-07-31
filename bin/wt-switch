@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run inside a project container to switch worktrees.
+# This detaches from the current tmux and calls the host's worktree picker.
+
+# Get the shared git directory for this project
+SHARED_GIT=$(git rev-parse --git-common-dir 2>/dev/null)
+if [[ -z "$SHARED_GIT" ]]; then
+    echo "Not inside a git repository."
+    exit 1
+fi
+
+# Detach from current tmux (if attached)
+tmux detach-client 2>/dev/null
+
+# Use distrobox-host-exec to run the picker on the host
+distrobox-host-exec ~/bin/worktree-picker "$PROJECT_NAME" "$SHARED_GIT"

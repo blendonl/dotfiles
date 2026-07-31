@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# worktree-picker [project-name] [shared-git-dir]
+# If arguments are missing, read ~/.worktree-switch-flag
+
+set -euo pipefail
+
+FLAG_FILE="$HOME/.worktree-switch-flag"
+
+if [[ $# -eq 0 ]]; then
+    # No arguments -> read the flag file left by wt-switch
+    if [[ -f "$FLAG_FILE" ]]; then
+        source "$FLAG_FILE"
+        rm -f "$FLAG_FILE"
+    else
+        echo "No flag file found and no arguments given." >&2
+        exit 1
+    fi
+else
+    PROJECT_NAME="$1"
+    SHARED_GIT="$2"
+fi
+
+if [[ -z "${PROJECT_NAME:-}" || -z "${SHARED_GIT:-}" ]]; then
+    echo "PROJECT_NAME or SHARED_GIT not set." >&2
+    exit 1
+fi
+
+# Use git worktree list to get all worktrees reliably
+mapfile -t LINES < <(git --git-dir="$SHARED_GIT" worktree list --porcelain 2>/dev/null)
+if [[ ${#LINES[@]} -eq 0 ]]; then
+    echo "No worktrees found for project $PROJECT_NAME." >&2
+    exit 1
+fi
+
+declare -A WT_BRANCH
+CURRENT_WT=""
+while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.*) ]]; then
+        CURRENT_WT="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^branch\ refs/heads/(.*) ]]; then
+        WT_BRANCH["$CURRENT_WT"]="${BASH_REMATCH[1]}"
+    elif [[ "$line" == "HEAD" ]]; then
+        WT_BRANCH["$CURRENT_WT"]="detached"
+    fi
+done < <(printf '%s\n' "${LINES[@]}")
+
+# Build fzf list
+ITEMS=()
+for wt in "${!WT_BRANCH[@]}"; do
+    branch="${WT_BRANCH[$wt]}"
+    ITEMS+=("$branch  → $wt")
+done
+
+SELECTED=$(printf '%s\n' "${ITEMS[@]}" | fzf --prompt="Worktree> " --with-nth=1 --delimiter='  → ')
+[[ -z "$SELECTED" ]] && exit 0
+
+BRANCH=$(echo "$SELECTED" | awk '{print $1}')
+WT_DIR=$(echo "$SELECTED" | cut -d'→' -f2 | sed 's/^ *//')
+
+SAFE_BRANCH=$(echo "$BRANCH" | tr '/ ' '-_' | sed 's/[^a-zA-Z0-9_-]//g')
+BOX_NAME="${PROJECT_NAME}-${SAFE_BRANCH}"
+
+# Create box if needed
+if ! distrobox list --no-color 2>/dev/null | grep -qw "$BOX_NAME"; then
+    echo "Creating container $BOX_NAME for $BRANCH ..."
+    distrobox create --name "$BOX_NAME" --image ubuntu:22.04
+    distrobox enter "$BOX_NAME" -- bash -c '
+        sudo apt update && sudo apt install -y tmux git fzf
+        echo "export PATH=\"\$HOME/bin:\$PATH\"" >> ~/.bashrc
+    '
+fi
+
+# Enter container with isolated tmux
+distrobox enter "$BOX_NAME" -- bash -c '
+    export PROJECT_NAME="'"$PROJECT_NAME"'"
+    export BOX_NAME="'"$BOX_NAME"'"
+    export TMUX_SOCK="$HOME/.tmux-sockets/$BOX_NAME/default"
+    mkdir -p "$(dirname "$TMUX_SOCK")"
+    cd "'"$WT_DIR"'" || exit 1
+    if tmux -S "$TMUX_SOCK" has-session -t dev 2>/dev/null; then
+        tmux -S "$TMUX_SOCK" attach-session -t dev
+    else
+        tmux -S "$TMUX_SOCK" new-session -s dev
+    fi
+'
