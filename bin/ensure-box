@@ -118,6 +118,27 @@ free_ip() {
 
 # ── Network namespace management ──────────────────────────────────────────
 
+# Inside a box the hostname is the box name (see the UTS namespace dance in
+# enter_box), but nothing resolves that name: nsswitch here is
+# "hosts: files resolve dns" with no myhostname module, and /etc/hosts only
+# knows the real host.  Every sudo inside the box then prints
+#   sudo: unable to resolve host <box>: Name or service not known
+# So give the box its own /etc/hosts.  'ip netns exec' bind-mounts everything
+# in /etc/netns/<box>/ over its /etc counterpart inside a private mount
+# namespace, exactly as it already does for resolv.conf — the host's own
+# /etc/hosts is untouched.
+_write_netns_hosts() {
+    local box_name="$1" dir="/etc/netns/${box_name}"
+    mkdir -p "${dir}"
+    {
+        # Keep the host's entries (localhost, the IPv6 names) so the box only
+        # gains a name; drop any pre-existing line for this box so a second
+        # run cannot leave a stale address ahead of ours.
+        grep -vE "[[:space:]]${box_name}([[:space:]]|\$)" /etc/hosts 2>/dev/null || true
+        printf '127.0.0.1\t%s\n' "${box_name}"
+    } > "${dir}/hosts"
+}
+
 create_netns() {
     local box_name="$1" dev_ip="$2"
 
@@ -173,9 +194,11 @@ create_netns() {
     echo "   + ip route replace default via ${gateway}" >&2
     ip netns exec "${box_name}" ip route replace default via "${gateway}" 2>/dev/null || true
 
-    # 6. DNS (ip-netns auto-bind-mounts /etc/netns/<name>/resolv.conf).
+    # 6. DNS + hostname resolution (ip-netns auto-bind-mounts the files in
+    #    /etc/netns/<name>/ over /etc/).
     mkdir -p "/etc/netns/${box_name}"
     echo "nameserver ${MACVLAN_DNS}" > "/etc/netns/${box_name}/resolv.conf"
+    _write_netns_hosts "${box_name}"
 
     echo "   ✓ IP: ${dev_ip}/${prefix_len}  GW: ${gateway}  DNS: ${MACVLAN_DNS}" >&2
 
@@ -371,6 +394,11 @@ enter_box() {
     [[ -f "/var/run/netns/${box_name}" ]] \
         || die "network namespace '${box_name}' does not exist."
 
+    # Re-entering an existing box skips create_netns, so refresh the box's
+    # hosts file here too: one small write, and boxes that predate it (or
+    # whose /etc/hosts has changed since) pick it up without a restart.
+    _write_netns_hosts "${box_name}"
+
     echo "→ Entering box '${box_name}' …" >&2
     [[ "${USE_MACVLAN}" == "true" ]] && echo "  IP: ${BOX_IP}" >&2
     [[ "${BROWSER}" == "true" ]] && echo "  Browser VNC: ${BOX_IP}:${BROWSER_PORT}" >&2
@@ -385,11 +413,18 @@ enter_box() {
         wrap_bin="$(_docker_wrapper_dir "${box_name}")"
         [[ -n "${WORK_DIR}" ]] && cd_p="cd '${WORK_DIR}' 2>/dev/null || true; "
         if [[ "${USE_PID_NS}" == "true" ]]; then
+            # nsenter enters the netns directly, so it does not get ip-netns's
+            # /etc/netns bind mounts — do the hosts one by hand.  unshare
+            # --mount already made this namespace private, so it stays here.
             unshare --pid --fork --mount --uts -- \
                 nsenter --net="/var/run/netns/${box_name}" -- \
-                /bin/sh -c "export PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
+                /bin/sh -c "export PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; mount --bind '/etc/netns/${box_name}/hosts' /etc/hosts 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         else
+            # unshare --uts keeps the hostname change inside this command's
+            # namespace.  'ip netns exec' only unshares net (and mount), so
+            # without it 'hostname' would rename the host itself.
             ip netns exec "${box_name}" \
+                unshare --uts -- \
                 /bin/sh -c "export PATH='${wrap_bin}':\$PATH; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         fi
         return
@@ -419,7 +454,7 @@ enter_box() {
     if [[ "${USE_PID_NS}" == "true" ]]; then
         unshare --pid --fork --mount --uts -- \
             nsenter --net="/var/run/netns/${box_name}" -- \
-            /bin/sh -c "mount -t proc proc /proc 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${user_shell}"
+            /bin/sh -c "mount -t proc proc /proc 2>/dev/null || true; mount --bind '/etc/netns/${box_name}/hosts' /etc/hosts 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${user_shell}"
     else
         ip netns exec "${box_name}" \
             /bin/sh -c "hostname '${box_name}' 2>/dev/null || true; ${user_shell}"
