@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Web mockups server: static files + SSE live-reload + auto-index.
 
-Serves ~/.claude/mockups/ at http://127.0.0.1:4280/. Each top-level subdirectory
+Serves ~/.claude/mockups/ on port 4280, bound to all interfaces — locally at
+http://127.0.0.1:4280/ and from the network at http://<lan-ip>:4280/. Each top-level subdirectory
 containing an index.html is a mockup; the root path shows a generated index of them.
 Any HTML response gets a tiny <script> appended that listens on /__reload (SSE)
 and calls location.reload() when the server notices a file change.
@@ -22,7 +23,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-HOST = "127.0.0.1"
+HOST = "0.0.0.0"
 PORT = 4280
 MOCKUPS_ROOT = Path.home() / ".claude" / "mockups"
 PID_FILE = MOCKUPS_ROOT / ".server.pid"
