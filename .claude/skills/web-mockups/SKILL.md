@@ -5,7 +5,7 @@ description: Creates web-view mockups (wireframes, high-fidelity pages, or multi
 
 # web-mockups
 
-You produce vanilla HTML+CSS mockups and serve them from a persistent local server at `http://127.0.0.1:4280/`. Every mockup lives in its own directory under `~/.claude/mockups/<slug>/` and is reachable at `http://127.0.0.1:4280/<slug>/`. A root index page lists them all.
+You produce vanilla HTML+CSS mockups and serve them from a persistent local server at `http://127.0.0.1:4280/`. The server binds all interfaces, so mockups are also reachable from other devices on the network at `http://<lan-ip>:4280/`. Every mockup lives in its own directory under `~/.claude/mockups/<slug>/` and is reachable at `http://127.0.0.1:4280/<slug>/`. A root index page lists them all.
 
 ## Workflow
 
@@ -15,7 +15,7 @@ On every invocation:
    ```bash
    python ~/.claude/skills/web-mockups/scripts/ensure_server.py
    ```
-   It prints the server URL and exits 0 whether it started the server or it was already running. You don't need to narrate this to the user — it's plumbing.
+   It prints the server URLs (localhost first, then the LAN URL when the machine has one) and exits 0 whether it started the server or it was already running. You don't need to narrate this to the user — it's plumbing.
 
 2. **Pick a slug.** Kebab-case, short, derived from the request. `password-manager-settings`, not `mockup1` or `PasswordManagerSettings_v2`.
 
@@ -31,6 +31,10 @@ On every invocation:
 5. **Print the URL.** One line at the end of your response:
    ```
    → http://127.0.0.1:4280/<slug>/
+   ```
+   When `ensure_server.py` reported a LAN URL, add a second line so the user can open the mockup from other devices on the network:
+   ```
+   → http://<lan-ip>:4280/<slug>/   (from other devices on the network)
    ```
    That's it. The user opens it in their browser and the page live-reloads when you edit it.
 
