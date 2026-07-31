@@ -48,6 +48,7 @@ USE_TMUX=true
 WORK_DIR=""
 TMUX_SOCKET_DIR="/tmp/tmux-ensure-box"
 TMUX_CONF="/home/notpc/.config/tmux/tmux.conf"
+VNC_PW_CMD="/home/notpc/bin/box-vnc-pw"
 ACTION=""
 SHELL_CMD=""
 BROWSER=false
@@ -656,11 +657,13 @@ launch_browser() {
     local box_name="$1"
     local port="${2:-6901}"
     local cname="${box_name}-browser"
+    local vnc_pw
+    vnc_pw="$("${VNC_PW_CMD}")" || die "cannot resolve the VNC password (${VNC_PW_CMD})"
 
     if podman container inspect "${cname}" &>/dev/null 2>&1; then
         if [[ "$(podman container inspect "${cname}" --format '{{.State.Running}}' 2>/dev/null)" == "true" ]]; then
             echo "→ Browser already running for '${box_name}'." >&2
-            echo "  VNC: ${BOX_IP}:${port}  (password: Password123)" >&2
+            echo "  VNC: ${BOX_IP}:${port}  (password: ${vnc_pw})" >&2
             return 0
         fi
         podman rm -f "${cname}" 2>/dev/null || true
@@ -669,12 +672,12 @@ launch_browser() {
     echo "→ Launching browser for '${box_name}' …" >&2
     if [[ "${USE_MACVLAN}" == "true" ]]; then
         podman run -d --name "${cname}" --network "ns:/var/run/netns/${box_name}" \
-            --shm-size 512m -e "VNC_PW=Password123" kasmweb/brave:1.16.0
+            --shm-size 512m -e "VNC_PW=${vnc_pw}" kasmweb/brave:1.16.0
     else
         podman run -d --name "${cname}" --network host --shm-size 512m \
-            -e "VNC_PW=Password123" -p "${port}:6901" kasmweb/brave:1.16.0
+            -e "VNC_PW=${vnc_pw}" -p "${port}:6901" kasmweb/brave:1.16.0
     fi
-    echo "  Browser VNC: ${BOX_IP}:${port}  (password: Password123)" >&2
+    echo "  Browser VNC: ${BOX_IP}:${port}  (password: ${vnc_pw})" >&2
 }
 
 stop_browser() {
