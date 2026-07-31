@@ -161,4 +161,4 @@ export PATH=/home/notpc/.opencode/bin:$PATH
 
 export ENABLE_LSP_TOOL=1
 
-alias cadence-build="CGO_ENABLED=1 CADENCE_BACKEND_URL=https://cadence-api.blendonl.com CADENCE_FRONTEND_URL=https://cadence.blendonl.com  CADENCE_USE_LOCAL=1 make arch-install"
+alias cadence-build="CGO_ENABLED=1 CADENCE_BACKEND_URL=https://cadence-api.blendonl.com CADENCE_FRONTEND_URL=https://cadence.blendonl.com make build && sudo CADENCE_BACKEND_URL=https://cadence-api.blendonl.com CADENCE_FRONTEND_URL=https://cadence.blendonl.com make install"
