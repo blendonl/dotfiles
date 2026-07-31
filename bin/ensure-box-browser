@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+# ensure-box-browser — Launch a Chromium profile inside an ensure-box network
+# namespace, with localhost remapped to a target IP.
+#
+# Usage:
+#   ensure-box-browser <box_name> [target_ip] [--new-profile]
+#
+# If target_ip is omitted, the box's own IP is used automatically (so localhost
+# points to the box itself).  This is the common case — you're browsing AS the
+# box, and localhost means "this machine's LAN address."
+#
+# Examples:
+#   ensure-box-browser devbox                 # localhost → box IP
+#   ensure-box-browser devbox 10.0.0.50       # localhost → 10.0.0.50
+#   ensure-box-browser devbox --new-profile   # fresh profile
+#
+# The profile is stored at ~/.ensure-box/profiles/<box_name>/ and persists
+# across restarts (bookmarks, cookies, extensions all survive).  Pass
+# --new-profile to wipe it and start fresh.
+#
+# Requires: ensure-box already running for <box_name> (network ns must exist).
+
+set -euo pipefail
+
+# ── Config ───────────────────────────────────────────────────────────────────
+
+BROWSER="${ENSURE_BROWSER_BIN:-chromium-browser}"
+# Snap's chromium wrapper breaks under ip-netns ("cannot find tracking cgroup").
+# Detect the wrapper and substitute the direct binary automatically.
+SNAP_CHROME="/snap/chromium/current/usr/lib/chromium-browser/chrome"
+PROFILE_BASE="${ENSURE_BROWSER_PROFILE_DIR:-$HOME/.ensure-box/profiles}"
+HOST_RESOLVE_TARGET=""   # localhost → this IP
+BOX_NAME=""
+NEW_PROFILE=false
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+die() { echo "ERROR: $*" >&2; exit 1; }
+usage() {
+    sed -n '2,/^$/p' "$0" | sed 's/^# //'
+    exit 0
+}
+
+# ── Parse args ───────────────────────────────────────────────────────────────
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)      usage ;;
+            --new-profile)  NEW_PROFILE=true; shift ;;
+            --browser)      BROWSER="$2"; shift 2 ;;
+            -*)             die "unknown flag '$1'" ;;
+            *)
+                if [[ -z "${BOX_NAME}" ]]; then
+                    BOX_NAME="$1"
+                elif [[ -z "${HOST_RESOLVE_TARGET}" ]]; then
+                    HOST_RESOLVE_TARGET="$1"
+                else
+                    die "too many arguments"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    [[ -n "${BOX_NAME}" ]] || die "box name required. Usage: ensure-box-browser <box_name> [target_ip]"
+}
+
+# ── Auto-resolve box IP ────────────────────────────────────────────────────────
+
+resolve_ip() {
+    if [[ -n "${HOST_RESOLVE_TARGET}" ]]; then
+        return 0  # explicitly provided — trust it
+    fi
+
+    # Try the IP allocation file first (written by ensure-box / ensure-compose).
+    local ip
+    ip=$(grep "^${BOX_NAME} " /tmp/compose/ip-allocations.txt 2>/dev/null | awk '{print $2}') || true
+    if [[ -n "${ip}" ]]; then
+        HOST_RESOLVE_TARGET="${ip}"
+        echo "→ Auto-resolved ${BOX_NAME} IP: ${HOST_RESOLVE_TARGET}  (from ip-allocations)" >&2
+        return 0
+    fi
+
+    # Fall back to the box state file.
+    local state_file="/tmp/ensure-box/${BOX_NAME}/state"
+    if [[ -f "${state_file}" ]]; then
+        # shellcheck source=/dev/null
+        source "${state_file}"
+        if [[ -n "${BOX_IP:-}" && "${BOX_IP}" != "host" ]]; then
+            HOST_RESOLVE_TARGET="${BOX_IP}"
+            echo "→ Auto-resolved ${BOX_NAME} IP: ${HOST_RESOLVE_TARGET}  (from state)" >&2
+            return 0
+        fi
+    fi
+
+    die "could not auto-resolve IP for '${BOX_NAME}'. Provide one explicitly: ensure-box-browser ${BOX_NAME} <ip>"
+}
+
+validate() {
+    # Check that the target looks like an IP.
+    [[ "${HOST_RESOLVE_TARGET}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+        || die "'${HOST_RESOLVE_TARGET}' doesn't look like an IP address"
+
+    # Check that the network namespace exists.
+    [[ -f "/var/run/netns/${BOX_NAME}" ]] \
+        || die "network namespace '${BOX_NAME}' not found. Is the box running? (ensure-box ${BOX_NAME})"
+
+    # Check that the browser binary is findable.
+    command -v "${BROWSER}" >/dev/null 2>&1 \
+        || die "browser '${BROWSER}' not found. Set ENSURE_BROWSER_BIN or install it."
+
+    # Check that we can enter the namespace (need root or CAP_SYS_ADMIN).
+    if [[ "${EUID:-}" -ne 0 ]]; then
+        # Try sudo; if it fails, tell the user.
+        if ! sudo true 2>/dev/null; then
+            die "need root to enter network namespace. Run with: sudo ensure-box-browser ${BOX_NAME}"
+        fi
+        # Re-exec self under sudo, preserving the display environment and the
+        # original user's profile path (otherwise $HOME becomes /root and the
+        # browser, which runs as the user, can't access /root/.ensure-box/...).
+        exec sudo \
+            DISPLAY="${DISPLAY:-}" \
+            XAUTHORITY="${XAUTHORITY:-}" \
+            DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" \
+            ENSURE_BROWSER_PROFILE_DIR="${PROFILE_BASE}" \
+            "$0" "$@"
+    fi
+}
+
+# ── Profile setup ────────────────────────────────────────────────────────────
+
+setup_profile() {
+    local profile_dir="${PROFILE_BASE}/${BOX_NAME}"
+
+    if [[ "${NEW_PROFILE}" == "true" ]] && [[ -d "${profile_dir}" ]]; then
+        echo "→ Wiping old profile: ${profile_dir}" >&2
+        rm -rf "${profile_dir}"
+    fi
+
+    mkdir -p "${profile_dir}"
+
+    # The browser process runs as the unprivileged user (via sudo -u), so the
+    # profile directory must be writable by that user.
+    chown -R notpc:notpc "${profile_dir}"
+
+    echo "→ Profile: ${profile_dir}" >&2
+}
+
+# ── Launch ───────────────────────────────────────────────────────────────────
+
+launch_browser() {
+    local profile_dir="${PROFILE_BASE}/${BOX_NAME}"
+    local host_rules="MAP localhost ${HOST_RESOLVE_TARGET}"
+
+    # If BROWSER is a snap wrapper (e.g. /usr/bin/chromium-browser or
+    # /snap/bin/chromium), use the direct snap binary instead — the wrapper's
+    # cgroup tracking fails inside ip-netns.
+    local browser_bin="${BROWSER}"
+    if [[ -x "${SNAP_CHROME}" ]]; then
+        local resolved
+        resolved=$(readlink -f "${BROWSER}" 2>/dev/null) || true
+        if [[ "${resolved}" == /snap/bin/* ]] || [[ "${BROWSER}" == /snap/bin/* ]]; then
+            browser_bin="${SNAP_CHROME}"
+        elif [[ "${BROWSER}" == chromium-browser ]] || [[ "${BROWSER}" == "chromium" ]]; then
+            # 'which' may still point to the snap wrapper — check.
+            local which_bin
+            which_bin=$(command -v "${BROWSER}" 2>/dev/null) || true
+            local which_real
+            which_real=$(readlink -f "${which_bin}" 2>/dev/null) || true
+            if [[ "${which_real}" == /snap/bin/* ]]; then
+                browser_bin="${SNAP_CHROME}"
+            fi
+        fi
+    fi
+
+    echo "→ Launching ${browser_bin} inside box '${BOX_NAME}' …" >&2
+    echo "  localhost → ${HOST_RESOLVE_TARGET}" >&2
+    echo "  profile → ${profile_dir}" >&2
+    echo >&2
+
+    # Chromium sandbox requires unshared user namespaces (or --no-sandbox).
+    # When running inside ip-netns, sandbox setup often fails, so we disable it.
+    # The browser still runs as the unprivileged user — we only drop the
+    # in-process sandboxing.
+    ip netns exec "${BOX_NAME}" \
+        sudo -u notpc \
+            env DISPLAY="${DISPLAY:-}" \
+            "${browser_bin}" \
+            --no-sandbox \
+            --disable-gpu-sandbox \
+            --host-resolver-rules="${host_rules}" \
+            --user-data-dir="${profile_dir}" \
+            --class="ensure-box-${BOX_NAME}" \
+            --no-first-run \
+            --no-default-browser-check \
+             &
+
+    local pid=$!
+    disown
+
+    echo "  Browser PID: ${pid}" >&2
+    echo "  Ctrl+C here won't affect the browser — close the window when done." >&2
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+main() {
+    parse_args "$@"
+    resolve_ip
+    validate "$@"
+    setup_profile
+
+    launch_browser
+
+    # Wait briefly so startup errors are visible, then exit.
+    sleep 2
+    echo "→ Done." >&2
+}
+
+main "$@"
