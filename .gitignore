@@ -41,6 +41,9 @@ ags.tmo
 .config/Vieb/windowstate
 .config/tmux/log.err
 
+# tmux plugins — installed by tpm, not vendored here
+.config/tmux/plugins/
+
 # Claude Code local state (contains credentials, cache, history).
 # The skills at the repo root are part of the dotfiles, so track those;
 # everything else under .claude/ — here or in any subdirectory — stays out.
