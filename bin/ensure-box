@@ -53,6 +53,20 @@ BROWSER=false
 BROWSER_PORT=6901
 USE_PID_NS=false
 
+# ── D-Bus session environment ──────────────────────────────────────────────
+# The box shares the host filesystem, so D-Bus sockets under /run/user/<UID>
+# are reachable.  Propagate these vars so systemctl --user (and other D-Bus
+# clients) work inside the box.
+_DBUS_ENV=""
+_build_dbus_env() {
+    [[ -n "${_DBUS_ENV}" ]] && return
+    local uid
+    uid=$(id -u notpc 2>/dev/null || echo 1000)
+    local runtime="${XDG_RUNTIME_DIR:-/run/user/${uid}}"
+    local dbus="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${runtime}/bus}"
+    _DBUS_ENV="XDG_RUNTIME_DIR=${runtime} DBUS_SESSION_BUS_ADDRESS=${dbus}"
+}
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -378,7 +392,7 @@ _user_shell_cmd() {
     local c=""
     [[ -n "${BOX_NAME}" ]] && c+="$(_box_path_prepend "${BOX_NAME}")"
     [[ -n "${WORK_DIR}" ]] && c+="cd '${WORK_DIR}' 2>/dev/null || true; "
-    c+="sudo -u notpc /usr/bin/zsh -l"
+    c+="sudo -u notpc env ${_DBUS_ENV} /usr/bin/zsh -l"
     echo "${c}"
 }
 
@@ -412,16 +426,16 @@ _ensure_tmux_server() {
     wrap_bin="$(_docker_wrapper_dir "${box_name}")"
     ip netns exec "${box_name}" \
         env HOME=/home/notpc \
-        sudo -u notpc env "PATH=${wrap_bin}:$PATH" \
+        sudo -u notpc env ${_DBUS_ENV} "PATH=${wrap_bin}:$PATH" \
         tmux -f "${TMUX_CONF}" -S "${tmux_socket}" \
             new-session -d -c "${default_path}" -s "${box_name}" \
-            /usr/bin/env "PATH=${wrap_bin}:$PATH" /usr/bin/zsh -l \
+            /usr/bin/env ${_DBUS_ENV} "PATH=${wrap_bin}:$PATH" /usr/bin/zsh -l \
         || die "tmux new-session -d failed inside netns ${box_name}"
 
     # default-command for new windows (server runs as notpc, no sudo needed).
     HOME=/home/notpc sudo -u notpc tmux -f "${TMUX_CONF}" -S "${tmux_socket}" \
         set-option -t "${box_name}" default-command \
-        "cd '${default_path}' 2>/dev/null || true; exec env PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
+        "cd '${default_path}' 2>/dev/null || true; exec env ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
         2>/dev/null || true
 
     # Give the session a moment to settle.
@@ -466,14 +480,14 @@ enter_box() {
             # --mount already made this namespace private, so it stays here.
             unshare --pid --fork --mount --uts -- \
                 nsenter --net="/var/run/netns/${box_name}" -- \
-                /bin/sh -c "export PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; mount --bind '/etc/netns/${box_name}/hosts' /etc/hosts 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
+                /bin/sh -c "export ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; mount --bind '/etc/netns/${box_name}/hosts' /etc/hosts 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         else
             # unshare --uts keeps the hostname change inside this command's
             # namespace.  'ip netns exec' only unshares net (and mount), so
             # without it 'hostname' would rename the host itself.
             ip netns exec "${box_name}" \
                 unshare --uts -- \
-                /bin/sh -c "export PATH='${wrap_bin}':\$PATH; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
+                /bin/sh -c "export ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         fi
         return
     fi
@@ -489,7 +503,7 @@ enter_box() {
         wrap_bin="$(_docker_wrapper_dir "${box_name}")"
         HOME=/home/notpc sudo -u notpc tmux -f "${TMUX_CONF}" -S "${tmux_socket}" \
             set-option -t "${box_name}" default-command \
-            "cd '${default_path}' 2>/dev/null || true; exec env PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
+            "cd '${default_path}' 2>/dev/null || true; exec env ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
             2>/dev/null || true
 
         echo "  tmux: attaching  (Ctrl-B d to detach)" >&2
@@ -537,16 +551,16 @@ _ensure_tmux_server_host() {
     # Prepend the docker→podman wrapper bin.
     local wrap_bin
     wrap_bin="$(_docker_wrapper_dir "${box_name}")"
-    HOME=/home/notpc sudo -u notpc env "PATH=${wrap_bin}:$PATH" \
+    HOME=/home/notpc sudo -u notpc env ${_DBUS_ENV} "PATH=${wrap_bin}:$PATH" \
         tmux -f "${TMUX_CONF}" -S "${tmux_socket}" \
         new-session -d -c "${default_path}" -s "${box_name}" \
-        /usr/bin/env "PATH=${wrap_bin}:$PATH" /usr/bin/zsh -l \
+        /usr/bin/env ${_DBUS_ENV} "PATH=${wrap_bin}:$PATH" /usr/bin/zsh -l \
         || die "tmux new-session -d failed for ${box_name}"
 
     # default-command for new windows.
     HOME=/home/notpc sudo -u notpc tmux -f "${TMUX_CONF}" -S "${tmux_socket}" \
         set-option -t "${box_name}" default-command \
-        "cd '${default_path}' 2>/dev/null || true; exec env PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
+        "cd '${default_path}' 2>/dev/null || true; exec env ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
         2>/dev/null || true
 
     local i=0
@@ -574,9 +588,9 @@ enter_box_host() {
         [[ -n "${WORK_DIR}" ]] && cd_p="cd '${WORK_DIR}' 2>/dev/null || true; "
         if [[ "${USE_PID_NS}" == "true" ]]; then
             unshare --pid --fork --mount --uts -- \
-                /bin/sh -c "export PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
+                /bin/sh -c "export ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH; mount -t proc proc /proc 2>/dev/null || true; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         else
-            /bin/sh -c "export PATH='${wrap_bin}':\$PATH; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
+            /bin/sh -c "export ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH; hostname '${box_name}' 2>/dev/null || true; ${cd_p} exec ${cmd}"
         fi
         return
     fi
@@ -732,6 +746,8 @@ cmd_stop() {
 # ── Ensure (create + enter) ────────────────────────────────────────────────
 
 cmd_ensure() {
+    _build_dbus_env
+
     if box_exists; then
         read_box_state
         if [[ -f "/var/run/netns/${BOX_NAME}" ]]; then
