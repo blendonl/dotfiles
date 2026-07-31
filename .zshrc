@@ -162,3 +162,9 @@ export PATH=/home/notpc/.opencode/bin:$PATH
 export ENABLE_LSP_TOOL=1
 
 alias cadence-build="CGO_ENABLED=1 CADENCE_BACKEND_URL=https://cadence-api.blendonl.com CADENCE_FRONTEND_URL=https://cadence.blendonl.com make build && sudo CADENCE_BACKEND_URL=https://cadence-api.blendonl.com CADENCE_FRONTEND_URL=https://cadence.blendonl.com make install"
+
+
+
+# kimi-code
+export PATH="/home/notpc/.kimi-code/bin:$PATH"
+source /usr/share/nvm/init-nvm.sh
