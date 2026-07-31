@@ -55,3 +55,7 @@ ags.tmo
 # Test artifacts
 .config/hypr/test.cat
 .config/hypr/test.ct
+
+# Python bytecode
+__pycache__/
+*.pyc
