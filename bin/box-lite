@@ -72,6 +72,7 @@ fi
 # ── Config ─────────────────────────────────────────────────────────────────
 
 ENSURE_BOX="/home/notpc/bin/ensure-box"
+VNC_PW_CMD="/home/notpc/bin/box-vnc-pw"
 PROJECT_ROOTS=("/mnt/data/personal" "/mnt/data/work")
 # How deep below a project root a repo may sit.  A directory at this depth is
 # still checked for .git, so this matches the old `find -maxdepth 5`.
@@ -395,12 +396,13 @@ confirm() {
 }
 
 do_browser() {
-    local box="$1" wt="$2" ip
+    local box="$1" wt="$2" ip pw
     [[ -f "${MACVLAN_CONF}" ]] || die "no macvlan config — browser needs ensure-macvlan."
     sudo -n "${ENSURE_BOX}" --browser --browser-port "${BROWSER_PORT}" \
         --no-tmux --no-enter --dir "$wt" "$box" || true
     ip=$(grep "^${box} " "${IP_STATE_FILE}" 2>/dev/null | awk '{print $2}' || true)
-    [[ -n "$ip" ]] && echo "  → https://${ip}:${BROWSER_PORT}  (password: Password123)" >&2
+    pw=$("${VNC_PW_CMD}" 2>/dev/null || echo '?')
+    [[ -n "$ip" ]] && echo "  → https://${ip}:${BROWSER_PORT}  (password: ${pw})" >&2
     pause
 }
 

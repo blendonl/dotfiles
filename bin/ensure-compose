@@ -21,6 +21,10 @@ PROJECT_NAME="${3:?project name required}"
 COMPOSE_DIR="/tmp/compose/${BOX_NAME}"
 COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
 
+# Browser password — resolved from $BOX_VNC_PW or the generated secret, never
+# hardcoded here (the compose file lands in /tmp, not in the repo).
+VNC_PW="$(/home/notpc/bin/box-vnc-pw)"
+
 # ── Detect mode & configure podman socket ─────────────────────────────
 
 CONFIG_FILE="/etc/podman/ensure-compose.conf"
@@ -157,7 +161,7 @@ services:
     ports:
       - "6901:6901"
     environment:
-      - VNC_PW=Password123
+      - VNC_PW=${VNC_PW}
     shm_size: "512m"
     restart: unless-stopped
 COMPOSE
@@ -222,7 +226,7 @@ services:
     shm_size: "512m"
     restart: unless-stopped
     environment:
-      - VNC_PW=Password123
+      - VNC_PW=${VNC_PW}
     depends_on:
       - dev
 
