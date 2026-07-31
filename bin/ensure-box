@@ -112,8 +112,10 @@ allocate_ip() {
 free_ip() {
     local box_name="$1"
     [[ -f "${IP_STATE_FILE}" ]] || return 0
-    grep -v "^${box_name} " "${IP_STATE_FILE}" > "${IP_STATE_FILE}.tmp" && \
-        mv "${IP_STATE_FILE}.tmp" "${IP_STATE_FILE}"
+    # grep exits 1 when every line was filtered out (empty result) — that is
+    # a success here, not an error.
+    grep -v "^${box_name} " "${IP_STATE_FILE}" > "${IP_STATE_FILE}.tmp" || true
+    mv "${IP_STATE_FILE}.tmp" "${IP_STATE_FILE}"
 }
 
 # ── Network namespace management ──────────────────────────────────────────
@@ -179,6 +181,24 @@ create_netns() {
         echo "   + ip link add link ${parent_if} name ${mv_if} type macvlan mode bridge" >&2
         ip link add link "${parent_if}" name "${mv_if}" type macvlan mode bridge \
             || die "failed to create macvlan ${mv_if} on ${parent_if}"
+        # Stable, locally-administered MAC derived from the box IP.  With the
+        # default random MAC, every box recreation changes it and hosts keep
+        # talking to the stale neighbour entry until their ARP cache expires.
+        # Retry: a just-deleted iface can hold its MAC for a moment, and the
+        # parent rejects a duplicate with "Address already in use".
+        local b1 b2 b3 b4 mac i
+        IFS='.' read -r b1 b2 b3 b4 <<< "${dev_ip}"
+        mac=$(printf '02:00:%02x:%02x:%02x:%02x' "$b1" "$b2" "$b3" "$b4")
+        for ((i = 0; i < 5; i++)); do
+            if ((i == 4)); then
+                ip link set dev "${mv_if}" address "${mac}" && break
+            else
+                ip link set dev "${mv_if}" address "${mac}" 2>/dev/null && break
+            fi
+            sleep 0.5
+        done
+        [[ "$(cat "/sys/class/net/${mv_if}/address")" == "${mac}" ]] \
+            || die "failed to set stable MAC on ${mv_if}"
         echo "   + ip link set ${mv_if} netns ${box_name}" >&2
         ip link set "${mv_if}" netns "${box_name}" \
             || die "failed to move ${mv_if} into netns ${box_name}"
@@ -202,7 +222,21 @@ create_netns() {
 
     echo "   ✓ IP: ${dev_ip}/${prefix_len}  GW: ${gateway}  DNS: ${MACVLAN_DNS}" >&2
 
-    # 7. Docker→podman wrapper so containers use the box's IP.
+    # 7. Host route: the host's subnet route points at the physical NIC,
+    #    but macvlan children are unreachable through their parent from the
+    #    host — traffic to box IPs must leave via the mac-host interface.
+    #    A per-box /32 beats the subnet route (longest prefix match) without
+    #    affecting any other LAN host.
+    if ip link show mac-host &>/dev/null; then
+        echo "   + host route: ${dev_ip}/32 dev mac-host" >&2
+        ip route replace "${dev_ip}/32" dev mac-host 2>/dev/null || true
+        # Drop any stale neighbour entry — the macvlan MAC may have changed
+        # since this IP was last used, and a dead lladdr blackholes traffic
+        # for the whole ARP expiry window.
+        ip neigh flush "${dev_ip}" 2>/dev/null || true
+    fi
+
+    # 8. Docker→podman wrapper so containers use the box's IP.
     _write_docker_wrapper "${box_name}"
 }
 
@@ -210,8 +244,22 @@ destroy_netns() {
     local box_name="$1"
     echo "→ Destroying network namespace '${box_name}' …" >&2
     if [[ -f "/var/run/netns/${box_name}" ]]; then
+        # Kill everything still running inside first — orphaned processes
+        # keep the (then anonymous) netns and its macvlan MAC alive, which
+        # blocks recreating the box ("Address already in use").
+        local pid
+        for pid in $(ip netns pids "${box_name}" 2>/dev/null); do
+            kill "${pid}" 2>/dev/null || true
+        done
+        sleep 0.3
         ip netns delete "${box_name}" 2>/dev/null || true
     fi
+    # Drop the host-side /32 route (see create_netns step 7).
+    local bip=""
+    [[ -f "${BOX_STATE_DIR}/${box_name}/state" ]] \
+        && bip=$(awk -F= '/^BOX_IP=/{print $2}' "${BOX_STATE_DIR}/${box_name}/state")
+    [[ "${bip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+        && ip route del "${bip}/32" dev mac-host 2>/dev/null || true
     rm -rf "/etc/netns/${box_name}"
     rm -rf "$(_docker_wrapper_dir "${box_name}")"
 }
