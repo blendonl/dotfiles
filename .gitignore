@@ -41,8 +41,13 @@ ags.tmo
 .config/Vieb/windowstate
 .config/tmux/log.err
 
-# Claude Code local state (contains credentials, cache, history)
+# Claude Code local state (contains credentials, cache, history).
+# The skills at the repo root are part of the dotfiles, so track those;
+# everything else under .claude/ — here or in any subdirectory — stays out.
 .claude/
+!/.claude/
+/.claude/*
+!/.claude/skills/
 
 # Test artifacts
 .config/hypr/test.cat
