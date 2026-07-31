@@ -10,6 +10,7 @@
 # Flags:
 #   --pid              Enable PID-namespace isolation (private /proc)
 #   --no-tmux          Skip tmux — drop into a plain shell (default: tmux)
+#   --no-enter         Create/ensure the box + tmux server but don't attach
 #   --dir PATH         Start shell in PATH instead of $HOME
 #   --browser          Launch a browser container in the box's network ns
 #   --browser-port N   VNC port for the browser (default: 6901)
@@ -52,6 +53,7 @@ SHELL_CMD=""
 BROWSER=false
 BROWSER_PORT=6901
 USE_PID_NS=false
+NO_ENTER=false
 
 # ── D-Bus session environment ──────────────────────────────────────────────
 # The box shares the host filesystem, so D-Bus sockets under /run/user/<UID>
@@ -506,12 +508,22 @@ enter_box() {
             "cd '${default_path}' 2>/dev/null || true; exec env ${_DBUS_ENV} PATH='${wrap_bin}':\$PATH /usr/bin/zsh -l" \
             2>/dev/null || true
 
+        if [[ "${NO_ENTER}" == "true" ]]; then
+            echo "  tmux: server ready — not attaching (--no-enter)" >&2
+            return 0
+        fi
+
         echo "  tmux: attaching  (Ctrl-B d to detach)" >&2
         export HOME=/home/notpc
         exec tmux -f "${TMUX_CONF}" -S "${tmux_socket}" attach-session -d -t "${box_name}"
     fi
 
     # ── Plain shell mode ─────────────────────────────────────────────
+    if [[ "${NO_ENTER}" == "true" ]]; then
+        echo "  Box '${box_name}' ready — not entering (--no-enter)" >&2
+        return 0
+    fi
+
     echo "  Entering plain shell  (Ctrl-D to exit)" >&2
     if [[ "${USE_PID_NS}" == "true" ]]; then
         unshare --pid --fork --mount --uts -- \
@@ -597,9 +609,20 @@ enter_box_host() {
 
     if [[ "${USE_TMUX}" == "true" ]] && command -v tmux >/dev/null 2>&1; then
         _ensure_tmux_server_host "${box_name}" "${tmux_socket}" "${user_shell}" || exit 1
+
+        if [[ "${NO_ENTER}" == "true" ]]; then
+            echo "  tmux: server ready — not attaching (--no-enter)" >&2
+            return 0
+        fi
+
         echo "  tmux: attaching  (Ctrl-B d to detach)" >&2
         export HOME=/home/notpc
         exec tmux -f "${TMUX_CONF}" -S "${tmux_socket}" attach-session -d -t "${box_name}"
+    fi
+
+    if [[ "${NO_ENTER}" == "true" ]]; then
+        echo "  Box '${box_name}' ready — not entering (--no-enter)" >&2
+        return 0
     fi
 
     echo "  Entering plain shell  (Ctrl-D to exit)" >&2
@@ -789,6 +812,7 @@ parse_args() {
             --help|-h)     usage ;;
             --pid)         USE_PID_NS=true; shift ;;
             --no-tmux)     USE_TMUX=false; shift ;;
+            --no-enter)    NO_ENTER=true; shift ;;
             --dir)         WORK_DIR="$2"; shift 2 ;;
             --browser)     BROWSER=true; shift ;;
             --browser-port) BROWSER_PORT="$2"; shift 2 ;;
