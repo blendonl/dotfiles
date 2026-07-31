@@ -1,0 +1,290 @@
+#!/usr/bin/env bash
+# switch-worktree – fuzzy switch between git worktrees within the current project.
+#
+# Derives everything it needs from the active tmux session:
+#   - project name  ← session name (before the ~)
+#   - shared git    ← working directory of the session
+#
+# Session naming convention (set by project-picker):
+#   project~branch   (~ is forbidden in git branch names)
+#
+# Architecture:
+#   This script ALWAYS runs on the host.  If invoked from inside a distrobox
+#   container, it uses the shared tmux socket ($TMUX) to re-exec itself on
+#   the host via "tmux display-popup -E".  This eliminates the dependency on
+#   host-spawn / distrobox-host-exec.
+
+set -euo pipefail
+
+# -----------------------------------------------------------------
+# PATH — non-login shells (like those inside tmux) may have sparse PATH.
+# distrobox lives in /usr/local/bin.
+# -----------------------------------------------------------------
+export PATH="/usr/local/bin:/usr/bin:$HOME/.local/bin:$HOME/bin:$PATH"
+
+# -----------------------------------------------------------------
+# Container → host bridge
+# Detects if we're inside a distrobox container (CONTAINER_ID,
+# DISTROBOX_ENTER, or /run/.containerenv) and re-execs the script
+# on the host via tmux display-popup.
+# -----------------------------------------------------------------
+_in_container=false
+[[ -n "${CONTAINER_ID:-}" ]] && _in_container=true
+[[ -n "${DISTROBOX_ENTER:-}" ]] && _in_container=true
+[[ -f /run/.containerenv ]] && _in_container=true
+
+if $_in_container; then
+    if [[ -z "${TMUX:-}" ]]; then
+        echo "ERROR: Running inside a container but outside tmux." >&2
+        echo "       'switch-worktree' needs a tmux session to bridge to the host." >&2
+        echo "       Run it from inside a tmux session, or directly on the host." >&2
+        exit 1
+    fi
+    # ${TMUX%%,*} extracts the socket path from "path,pid,clientid"
+    exec tmux -S "${TMUX%%,*}" display-popup -E "$0" "$@"
+fi
+
+# -----------------------------------------------------------------
+# Each project has its own tmux server/socket so that sessions from
+# different projects are isolated.  Worktrees within the same project
+# share the project's tmux server.
+# Socket path: $HOME/.tmux-socket-<project-name>
+# -----------------------------------------------------------------
+
+# -----------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------
+for cmd in git fzf tmux; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: required command '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+
+# -----------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------
+
+# Find the shared git directory from a tmux session.
+# Tries the session's CWD first, then walks all sessions.
+find_shared_git_from_tmux() {
+    local sock="$1" shared cwd s
+
+    # 1) Current session's CWD
+    cwd=$(tmux -S "$sock" display-message -p '#{pane_current_path}' 2>/dev/null) || return 1
+    shared=$(cd "$cwd" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null) || true
+    if [[ -n "$shared" ]]; then
+        [[ "$shared" != /* ]] && shared="$(realpath "$cwd/$shared" 2>/dev/null || readlink -f "$cwd/$shared" 2>/dev/null || echo "$cwd/$shared")"
+        echo "$shared"
+        return 0
+    fi
+
+    # 2) Walk all sessions
+    local sessions
+    sessions=$(tmux -S "$sock" list-sessions -F '#S' 2>/dev/null) || return 1
+    for s in $sessions; do
+        cwd=$(tmux -S "$sock" display-message -t "$s" -p '#{pane_current_path}' 2>/dev/null) || continue
+        shared=$(cd "$cwd" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null) || continue
+        if [[ -n "$shared" ]]; then
+            [[ "$shared" != /* ]] && shared="$(realpath "$cwd/$shared" 2>/dev/null || readlink -f "$cwd/$shared" 2>/dev/null || echo "$cwd/$shared")"
+            echo "$shared"
+            return 0
+        fi
+    done
+    return 1
+}
+
+container_exists() {
+    podman ps --filter "name=$1-dev" --format '{{.Names}}' 2>/dev/null | grep -q .
+}
+
+sanitise_branch() {
+    local b="$1"
+    # Strip "[detached] " prefix if present
+    b="${b#\[detached\] }"
+    echo "$b" | tr '/ ' '--' | sed 's/[^a-zA-Z0-9_.-]//g'
+}
+
+# -----------------------------------------------------------------
+# Determine context: inside tmux or outside?
+# -----------------------------------------------------------------
+if [[ -n "${TMUX:-}" ]]; then
+    # ---- Inside tmux ----
+    # $TMUX format: /socket/path,PID,CLIENTID — extract the socket path.
+    SOCKET_PATH="${TMUX%%,*}"
+    SESSION_NAME=$(tmux display-message -p '#S')
+
+    if [[ "$SESSION_NAME" == *~* ]]; then
+        PROJECT_NAME="${SESSION_NAME%%\~*}"
+    else
+        echo "ERROR: session '$SESSION_NAME' does not follow 'project~branch' naming." >&2
+        echo "       Were you entered via project-picker?" >&2
+        exit 1
+    fi
+
+    # ── Detect app context ──────────────────────────────────────────────
+    # If the current session is an app session (project~branch/app-slug),
+    # capture the app's path relative to the worktree root so we can
+    # carry it over to the target worktree.
+    APP_SLUG=""
+    APP_REL=""
+    if [[ "$SESSION_NAME" == *~*/* ]]; then
+        APP_SLUG="${SESSION_NAME#*~*/}"
+        app_cwd=$(tmux -S "$SOCKET_PATH" display-message -t "$SESSION_NAME" -p '#{pane_current_path}' 2>/dev/null) || app_cwd=""
+        if [[ -n "$app_cwd" ]]; then
+            app_wt=$(cd "$app_cwd" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || app_wt=""
+            if [[ -n "$app_wt" && "$app_cwd" == "$app_wt"/* ]]; then
+                APP_REL="${app_cwd#$app_wt/}"
+            fi
+        fi
+    fi
+
+    SHARED_GIT=$(find_shared_git_from_tmux "$SOCKET_PATH") || {
+        echo "ERROR: could not locate git repository from any session CWD." >&2
+        echo "       Try 'cd'ing to a project worktree and re-run." >&2
+        exit 1
+    }
+
+else
+    # ---- Outside tmux — try current directory ----
+    SHARED_GIT=$(git rev-parse --git-common-dir 2>/dev/null) || {
+        echo "ERROR: not in a tmux session or a git repository." >&2
+        echo "       Run 'project-picker' first, or cd into a project worktree." >&2
+        exit 1
+    }
+    [[ "$SHARED_GIT" != /* ]] && SHARED_GIT="$(realpath "$SHARED_GIT" 2>/dev/null || readlink -f "$SHARED_GIT" 2>/dev/null || echo "$PWD/$SHARED_GIT")"
+
+    # Derive a project name that matches project-picker's convention
+    # (e.g. "personal-dotfiles" for /mnt/data/personal/dotfiles/.git)
+    PROJECT_NAME=
+    for root in /mnt/data/personal /mnt/data/work; do
+        if [[ "$SHARED_GIT" == "$root/"* ]]; then
+            rel="${SHARED_GIT#"$root/"}"
+            proj_path="${rel%%/.git*}"
+            PROJECT_NAME="${root##*/}-${proj_path}"
+            break
+        fi
+    done
+    if [[ -z "$PROJECT_NAME" ]]; then
+        PROJECT_NAME=$(basename "$(dirname -- "$(realpath "$SHARED_GIT")")")
+    fi
+
+    SOCKET_PATH="$HOME/.tmux-socket-${PROJECT_NAME}"
+fi
+
+# -----------------------------------------------------------------
+# List worktrees
+# -----------------------------------------------------------------
+declare -A WT_BRANCH
+CURRENT_WT=
+
+while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.*) ]]; then
+        CURRENT_WT="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^branch\ refs/heads/(.*) ]]; then
+        WT_BRANCH["${BASH_REMATCH[1]}"]="$CURRENT_WT"
+    elif [[ "$line" == "detached" ]]; then
+        WT_BRANCH["[detached] ${CURRENT_WT##*/}"]="$CURRENT_WT"
+    fi
+done < <(git --git-dir="$SHARED_GIT" worktree list --porcelain 2>/dev/null)
+
+if ((${#WT_BRANCH[@]} == 0)); then
+    echo "No worktrees with branches found." >&2
+    exit 1
+fi
+
+# -----------------------------------------------------------------
+# fzf — regular branches first, detached at the bottom
+# -----------------------------------------------------------------
+REGULAR=()
+DETACHED=()
+for b in "${!WT_BRANCH[@]}"; do
+    if [[ "$b" == "[detached]"* ]]; then
+        DETACHED+=("$b")
+    else
+        REGULAR+=("$b")
+    fi
+done
+readarray -t REGULAR < <(printf '%s\n' "${REGULAR[@]}" | sort)
+readarray -t DETACHED < <(printf '%s\n' "${DETACHED[@]}" | sort)
+
+ALL=("${REGULAR[@]}")
+if ((${#DETACHED[@]} > 0)); then
+    ALL+=("${DETACHED[@]}")
+fi
+
+SELECTED=$(printf '%s\n' "${ALL[@]}" | fzf --prompt="Worktree> ")
+[[ -z "$SELECTED" ]] && exit 0
+
+BRANCH="$SELECTED"
+WT_DIR="${WT_BRANCH["$BRANCH"]}"
+
+# -----------------------------------------------------------------
+# Build container & session names
+# -----------------------------------------------------------------
+SAFE_BRANCH=$(sanitise_branch "$BRANCH")
+BOX_NAME="${PROJECT_NAME}-${SAFE_BRANCH}"
+
+# If we came from an app session and the app directory exists in the
+# target worktree, carry the app context over.  Otherwise open the
+# worktree root.
+if [[ -n "$APP_SLUG" && -n "$APP_REL" && -d "$WT_DIR/$APP_REL" ]]; then
+    SESSION_NAME="${PROJECT_NAME}~${SAFE_BRANCH}/${APP_SLUG}"
+    TARGET_DIR="$WT_DIR/$APP_REL"
+    CONTAINER_TARGET="/workspace/$APP_REL"
+else
+    SESSION_NAME="${PROJECT_NAME}~${SAFE_BRANCH}"
+    TARGET_DIR="$WT_DIR"
+    CONTAINER_TARGET=""
+    if [[ -n "$APP_SLUG" ]]; then
+        echo "NOTE: '${APP_REL}' not found in target worktree, opening worktree root." >&2
+    fi
+fi
+
+# -----------------------------------------------------------------
+# Create compose project if needed (shared with project-picker)
+# -----------------------------------------------------------------
+# Shared script handles compose generation + container startup + provisioning
+compose_file=$(~/bin/ensure-compose "$BOX_NAME" "$WT_DIR" "$PROJECT_NAME")
+
+# -----------------------------------------------------------------
+# Ensure the host tmux server is running
+# -----------------------------------------------------------------
+tmux -S "$SOCKET_PATH" start-server 2>/dev/null || true
+
+# -----------------------------------------------------------------
+# Create session on the host tmux server if missing
+# -----------------------------------------------------------------
+if ! tmux -S "$SOCKET_PATH" has-session -t "$SESSION_NAME" 2>/dev/null; then
+    if [[ -n "$CONTAINER_TARGET" ]]; then
+        # App session: prefer the container-side path (/workspace/apps/…),
+        # fall back to the host path, then /home/notpc.
+        tmux -S "$SOCKET_PATH" new-session -d -s "$SESSION_NAME" \
+            -c "$TARGET_DIR" \
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
+
+        tmux -S "$SOCKET_PATH" set-option -t "$SESSION_NAME" default-command \
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
+    else
+        # Base worktree session: cd to the worktree root.
+        tmux -S "$SOCKET_PATH" new-session -d -s "$SESSION_NAME" \
+            -c "$TARGET_DIR" \
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd \"\$1\" && exec /usr/bin/zsh' _ ${TARGET_DIR}"
+
+        tmux -S "$SOCKET_PATH" set-option -t "$SESSION_NAME" default-command \
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd \"\$1\" && exec /usr/bin/zsh' _ ${TARGET_DIR}"
+    fi
+
+    tmux -S "$SOCKET_PATH" set-window-option -t "$SESSION_NAME" remain-on-exit on 2>/dev/null || true
+fi
+
+# -----------------------------------------------------------------
+# Attach or switch
+# -----------------------------------------------------------------
+if [[ -n "${TMUX:-}" ]]; then
+    # Inside tmux — switch the current client to the target session.
+    tmux -S "$SOCKET_PATH" switch-client -t "$SESSION_NAME"
+else
+    # Outside tmux — attach.
+    exec tmux -S "$SOCKET_PATH" attach-session -t "$SESSION_NAME"
+fi

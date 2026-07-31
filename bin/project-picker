@@ -1,0 +1,337 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+export PATH="/usr/local/bin:/usr/bin:$HOME/.local/bin:$HOME/bin:$PATH"
+
+_in_container=false
+[[ -n "${CONTAINER_ID:-}" ]] && _in_container=true
+[[ -n "${DISTROBOX_ENTER:-}" ]] && _in_container=true
+[[ -f /run/.containerenv ]] && _in_container=true
+
+if $_in_container; then
+    if [[ -z "${TMUX:-}" ]]; then
+        echo "ERROR: Running inside a container but outside tmux." >&2
+        echo "       'project-picker' needs a tmux session to bridge to the host." >&2
+        echo "       Run it from inside a tmux session, or directly on the host." >&2
+        exit 1
+    fi
+    # ${TMUX%%,*} extracts the socket path from "path,pid,clientid"
+    exec tmux -S "${TMUX%%,*}" display-popup -E "$0" "$@"
+fi
+
+PROJECT_ROOTS=("/mnt/data/personal" "/mnt/data/work")
+for cmd in git fzf tmux; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: required command '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+
+# If the macvlan network has been configured, talk to the rootful podman
+# socket so that compose commands target the macvlan containers.
+# CONTAINER_HOST is podman's native var; DOCKER_HOST is needed by the
+# docker-compose external provider.
+CONFIG_FILE="/etc/podman/ensure-compose.conf"
+if [[ -f "${CONFIG_FILE}" ]]; then
+    # shellcheck source=/dev/null
+    source "${CONFIG_FILE}"
+    export CONTAINER_HOST="${PODMAN_SOCKET:-unix:///run/podman/podman.sock}"
+    export DOCKER_HOST="${CONTAINER_HOST}"
+fi
+
+resolve_absolute() {
+    local base="$1" rel="$2"
+    if [[ "$rel" == /* ]]; then
+        echo "$rel"
+    else
+        realpath "$base/$rel" 2>/dev/null \
+            || readlink -f "$base/$rel" 2>/dev/null \
+            || { cd "$base" && cd "$rel" 2>/dev/null && pwd -P; } \
+            || echo "$base/$rel"
+    fi
+}
+
+sanitise_branch() {
+    local b="$1"
+    # Detached HEAD → use a stable placeholder
+    if [[ "$b" == "HEAD" ]]; then
+        b="detached"
+    fi
+    echo "$b" | tr '/' '-' | sed 's/[^a-zA-Z0-9_.-]//g'
+}
+
+declare -A REPO_MAP    # absolute-shared-git-dir → "wt_dir1 wt_dir2 ..."
+declare -A DISPLAY_MAP  # display-name → shared-git-dir
+
+discover_projects() {
+    REPO_MAP=()
+    DISPLAY_MAP=()
+
+    while IFS= read -r gitpath; do
+        local wt_dir
+        wt_dir=$(dirname -- "$gitpath")
+        local rel
+        rel=$(cd "$wt_dir" && git rev-parse --git-common-dir 2>/dev/null) || continue
+        local shared
+        shared=$(resolve_absolute "$wt_dir" "$rel")
+        REPO_MAP["$shared"]+="$wt_dir "
+    done < <(
+        find "${PROJECT_ROOTS[@]}" -maxdepth 5 \
+            \( -type f -name .git -o -type d -name .git \) 2>/dev/null
+    )
+
+    if ((${#REPO_MAP[@]} == 0)); then
+        echo "No git repositories found under ${PROJECT_ROOTS[*]}" >&2
+        return 1
+    fi
+
+    for shared in "${!REPO_MAP[@]}"; do
+        local found=
+        local display=
+        for root in "${PROJECT_ROOTS[@]}"; do
+            if [[ "$shared" == "$root/"* ]]; then
+                local rel="${shared#"$root/"}"
+                local proj_path="${rel%%/.git*}"
+                display="${root##*/}/${proj_path}"
+                found=1
+                break
+            fi
+        done
+        if [[ -z "$found" ]]; then
+            display="$(basename "$(dirname -- "$shared")")"
+        fi
+        DISPLAY_MAP["$display"]="$shared"
+    done
+}
+
+
+find_main_worktree() {
+    local shared="$1"
+    local main_wt=
+    local main_branch=
+
+    while IFS= read -r wt; do
+        local branch
+        branch=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+        if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+            main_wt="$wt"
+            main_branch="$branch"
+            break
+        fi
+        if [[ -z "$main_wt" ]]; then
+            main_wt="$wt"
+            main_branch="$branch"
+        fi
+    done < <(git --git-dir="$shared" worktree list --porcelain 2>/dev/null | awk '/^worktree/ {print $2}')
+
+    printf '%s\t%s\n' "${main_wt:-}" "${main_branch:-}"
+}
+
+
+ensure_tmux_session() {
+    local project_name="$1"    # sanitised for use in names (e.g. "personal-dotfiles")
+    local safe_branch="$2"     # sanitised branch (e.g. "main")
+    local wt_dir="$3"          # worktree path
+
+    local box_name="${project_name}-${safe_branch}"
+    local session_name="${project_name}~${safe_branch}"
+    local tmux_sock="$HOME/.tmux-socket-${project_name}"
+
+    # Shared script handles compose generation + container startup + provisioning
+    local compose_file
+    compose_file=$(~/bin/ensure-compose "$box_name" "$wt_dir" "$project_name")
+
+    # Verify the dev container is actually running before proceeding
+    local dev_running
+    dev_running=$(podman container inspect "${box_name}-dev" --format '{{.State.Running}}' 2>/dev/null || true)
+    if [[ "${dev_running}" != "true" ]]; then
+        echo "ERROR: dev container for '${box_name}' failed to start." >&2
+        echo "       Check container logs with: podman compose -p ${box_name} -f ${compose_file} logs" >&2
+        return 1
+    fi
+
+    # Wait for the container to be ready to accept exec commands.
+    # After provisioning (pacman installs packages), the container may need
+    # a moment to settle — pacman post-install hooks, ldconfig, etc.
+    # Use "podman exec" directly (NOT "podman compose exec") because:
+    #   1. We are outside tmux, so the compose-external-provider workaround
+    #      (needed inside tmux for socket permissions) is not required here.
+    #   2. The docker-compose external provider adds overhead and can fail
+    #      transiently right after "compose up".
+    local ready=false
+    local exec_err=""
+    for _i in $(seq 1 20); do
+        exec_err=$(CONTAINER_HOST="${CONTAINER_HOST:-}" \
+            podman exec -u 1000:1000 "${box_name}-dev" \
+            /bin/sh -c 'test -x /usr/bin/zsh' 2>&1) && ready=true && break || true
+        sleep 0.5
+    done
+    if ! $ready; then
+        echo "ERROR: dev container '${box_name}-dev' is running but exec failed after 20 retries." >&2
+        echo "       Last error: ${exec_err}" >&2
+        echo "       Try: podman exec -u 1000:1000 ${box_name}-dev /bin/sh" >&2
+        return 1
+    fi
+
+    # Build the exec command that will run inside tmux.
+    # Inline CONTAINER_HOST / DOCKER_HOST so we don't depend on tmux's
+    # environment (which may be stale from a previous server start).
+    # Use "podman compose exec" rather than "podman exec" — the compose
+    # external provider (docker-compose) can reach the podman socket even
+    # when raw "podman exec" inside tmux gets permission denied.
+    #
+    # The container mounts the worktree at /workspace (guaranteed).
+    # The host path ($wt_dir) is also passed as $1 for reference, but
+    # we prefer /workspace since it doesn't depend on rslave propagation.
+    # Fallback chain: /workspace → host path ($1) → /home/notpc → no-op.
+    # zsh always execs — a failed cd must not kill the pane.
+    local inner_cmd='cd /workspace 2>/dev/null || cd "$1" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh'
+    local exec_cmd
+    printf -v exec_cmd \
+        'CONTAINER_HOST=%q DOCKER_HOST=%q podman compose -p %q -f %q exec -u 1000:1000 dev /bin/sh -c %q _ %q' \
+        "${CONTAINER_HOST:-}" "${DOCKER_HOST:-}" "${box_name}" "${compose_file}" "$inner_cmd" "$wt_dir"
+
+    # Kill any existing tmux server on this socket and start fresh.
+    # The old server may have been started before the user was added to
+    # the "podman" group, which would cause "permission denied" on the
+    # podman socket inside tmux sessions.
+    tmux -S "$tmux_sock" kill-server 2>/dev/null || true
+
+    # Explicitly remove a stale socket file left behind by a crashed or
+    # OOM-killed tmux server — kill-server only works against a live server.
+    # A stale socket will prevent start-server from binding.
+    if [[ -e "$tmux_sock" ]]; then
+        rm -f "$tmux_sock" 2>/dev/null || {
+            echo "ERROR: cannot remove stale tmux socket '${tmux_sock}'." >&2
+            echo "       Check permissions and try again." >&2
+            return 1
+        }
+    fi
+
+    if ! _start_err=$(tmux -S "$tmux_sock" start-server 2>&1); then
+        echo "ERROR: failed to start tmux server on socket '${tmux_sock}'." >&2
+        echo "       tmux start-server: ${_start_err}" >&2
+        return 1
+    fi
+
+    # Always kill and recreate the session — the old one may have dead windows
+    # from a previous failed exec (e.g. container wasn't provisioned).
+    tmux -S "$tmux_sock" kill-session -t "$session_name" 2>/dev/null || true
+
+    _new_err=$(tmux -S "$tmux_sock" new-session -d -s "$session_name" \
+        -c "$wt_dir" \
+        "$exec_cmd" 2>&1) || {
+        echo "ERROR: failed to create tmux session '${session_name}'." >&2
+        echo "       tmux new-session: ${_new_err}" >&2
+        return 1
+    }
+
+    # Keep the session alive even if the initial command exits (e.g. exec fails).
+    tmux -S "$tmux_sock" set-window-option -t "$session_name" remain-on-exit on 2>/dev/null || true
+
+    tmux -S "$tmux_sock" set-option -t "$session_name" default-command \
+        "$exec_cmd"
+
+    # Verify the session actually survived before returning.
+    if ! tmux -S "$tmux_sock" has-session -t "$session_name" 2>/dev/null; then
+        echo "ERROR: tmux session '${session_name}' died immediately after creation." >&2
+        echo "       The exec command likely failed inside the session." >&2
+        return 1
+    fi
+
+    # Print the session name for callers that need it
+    printf '%s\n' "$session_name"
+}
+
+if [[ "${1:-}" == "--list" ]]; then
+    discover_projects || exit 1
+
+    for display in "${!DISPLAY_MAP[@]}"; do
+        _shared="${DISPLAY_MAP[$display]}"
+        _wt= _branch=
+        IFS=$'\t' read -r _wt _branch < <(find_main_worktree "$_shared")
+        [[ -z "$_wt" || -z "$_branch" ]] && continue
+
+        _safebranch=$(sanitise_branch "$_branch")
+        _proj_name="${display//\//-}"
+        _tmux_name="${_proj_name}~${_safebranch}"
+
+        printf '%s\t%s\t%s\n' "$display" "$_wt" "$_tmux_name"
+    done
+    exit 0
+fi
+
+
+if [[ "${1:-}" == "--ensure" ]]; then
+    target="${2:-}"
+    [[ -z "$target" ]] && { echo "ERROR: --ensure requires a project display name" >&2; exit 1; }
+
+    discover_projects || exit 1
+
+    _shared="${DISPLAY_MAP[$target]}"
+    [[ -z "$_shared" ]] && { echo "ERROR: unknown project '$target'" >&2; exit 1; }
+
+    _wt= _branch=
+    IFS=$'\t' read -r _wt _branch < <(find_main_worktree "$_shared")
+    [[ -z "$_wt" || -z "$_branch" ]] && { echo "ERROR: no worktrees found for '$target'" >&2; exit 1; }
+
+    _safebranch=$(sanitise_branch "$_branch")
+    _proj_name="${target//\//-}"
+    _session_name="${_proj_name}~${_safebranch}"
+
+    ensure_tmux_session "$_proj_name" "$_safebranch" "$_wt" >/dev/null || exit 1
+
+    printf '%s\t%s\t%s\n' "$target" "$_wt" "$_session_name"
+    exit 0
+fi
+
+discover_projects || exit 1
+
+# fzf selection
+SELECTION=$(printf '%s\n' "${!DISPLAY_MAP[@]}" | sort | fzf --prompt="Project> ")
+[[ -z "$SELECTION" ]] && exit 0
+
+SHARED_GIT="${DISPLAY_MAP["$SELECTION"]}"
+
+# Derive a short project identifier from the display name.
+# Replace / with - so it is safe in tmux session names and container names.
+PROJECT_NAME="${SELECTION//\//-}"
+
+# Find the main worktree (prefer main / master, else first listed)
+MAIN_WT=
+MAIN_BRANCH=
+
+while IFS= read -r wt; do
+    branch=$(git -C "$wt" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+    if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        MAIN_WT="$wt"
+        MAIN_BRANCH="$branch"
+        break
+    fi
+    if [[ -z "$MAIN_WT" ]]; then
+        MAIN_WT="$wt"
+        MAIN_BRANCH="$branch"
+    fi
+done < <(git --git-dir="$SHARED_GIT" worktree list --porcelain 2>/dev/null | awk '/^worktree/ {print $2}')
+
+if [[ -z "$MAIN_WT" ]]; then
+    echo "ERROR: no worktrees found for project $PROJECT_NAME" >&2
+    exit 1
+fi
+
+SAFE_BRANCH=$(sanitise_branch "$MAIN_BRANCH")
+BOX_NAME="${PROJECT_NAME}-${SAFE_BRANCH}"
+SESSION_NAME="${PROJECT_NAME}~${SAFE_BRANCH}"
+
+ensure_tmux_session "$PROJECT_NAME" "$SAFE_BRANCH" "$MAIN_WT" >/dev/null || exit 1
+
+TMUX_SOCK="$HOME/.tmux-socket-${PROJECT_NAME}"
+
+if [[ -n "${TMUX:-}" ]]; then
+    # Already inside tmux → switch client
+    tmux -S "$TMUX_SOCK" switch-client -t "$SESSION_NAME"
+else
+    # Outside tmux → attach
+    exec tmux -S "$TMUX_SOCK" attach-session -t "$SESSION_NAME"
+fi
