@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+# box-switch-worktree – fuzzy switch between git worktrees within an ensure-box.
+#
+# Derives the box context from the tmux socket path (when inside tmux) or
+# from the hostname (when outside tmux, inside a box's netns shell).
+# When invoked via tmux keybind (display-popup), this script runs as root
+# (the tmux server's user), so tmux socket commands need no sudo.  However,
+# git commands must run as the unprivileged user (notpc), otherwise git's
+# safe.directory check (CVE-2022-24765) refuses to operate in the repo.
+#
+# Session naming convention:
+#   <box_name>           — primary session (main/master branch)
+#   <box_name>~<branch>  — alternate worktree sessions
+#
+# Unlike switch-worktree, there is no container → host bridge — this
+# script always runs directly on the host (the box only isolates the
+# network namespace, not the filesystem).
+
+set -euo pipefail
+
+# Non-login shells (like those inside tmux) may have a sparse PATH.
+export PATH="/usr/local/bin:/usr/bin:$HOME/.local/bin:$HOME/bin:$PATH"
+
+# ── Keep the display-popup open on error so the user can read messages ──
+# The script runs via "tmux display-popup -E", which closes the popup as
+# soon as the command exits.  A failing exit would flash the error and
+# disappear before anyone can read it — pause on non-zero exit instead.
+_cleanup() {
+    local exit_code=$?
+    if (( exit_code != 0 )); then
+        echo
+        read -r -p "Press Enter to close..." _ 2>/dev/null || true
+    fi
+    exit $exit_code
+}
+trap _cleanup EXIT
+
+# ── Dependencies ──────────────────────────────────────────────────────────
+
+for cmd in git fzf tmux; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: required command '$cmd' not found in PATH" >&2
+        exit 1
+    fi
+done
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+sanitise_branch() {
+    local b="$1"
+    # Strip "[detached] " prefix if present
+    b="${b#\[detached\] }"
+    echo "$b" | tr '/ ' '--' | sed 's/[^a-zA-Z0-9_.-]//g'
+}
+
+# ── Context detection ─────────────────────────────────────────────────────
+
+detect_box_context() {
+    if [[ -n "${TMUX:-}" ]]; then
+        # Inside tmux: parse box name from the socket path.
+        # $TMUX format: /path/to/socket,PID,CLIENTID
+        # Socket path for ensure-box: /tmp/tmux-ensure-box/<box>/tmux.sock
+        local sock="${TMUX%%,*}"
+        if [[ "$sock" != /tmp/tmux-ensure-box/*/tmux.sock ]]; then
+            echo "ERROR: not inside an ensure-box tmux session." >&2
+            echo "       Socket: ${sock}" >&2
+            echo "       This script requires an ensure-box session." >&2
+            exit 1
+        fi
+        BOX_SOCKET="$sock"
+        # Extract <box> from /tmp/tmux-ensure-box/<box>/tmux.sock
+        BOX_NAME=$(basename "$(dirname "$sock")")
+    else
+        # Outside tmux: derive from hostname.
+        # ensure-box sets the UTS namespace hostname to the box name.
+        BOX_NAME=$(hostname 2>/dev/null || cat /proc/sys/kernel/hostname 2>/dev/null || true)
+        if [[ -z "$BOX_NAME" ]]; then
+            echo "ERROR: cannot determine box name from hostname." >&2
+            echo "       Run this from inside an ensure-box tmux session." >&2
+            exit 1
+        fi
+        BOX_SOCKET="/tmp/tmux-ensure-box/${BOX_NAME}/tmux.sock"
+    fi
+
+    if [[ ! -S "$BOX_SOCKET" ]]; then
+        echo "ERROR: tmux socket not found at ${BOX_SOCKET}" >&2
+        echo "       Hostname '${BOX_NAME}' does not match a running ensure-box." >&2
+        echo "       Run this from inside an ensure-box tmux session." >&2
+        exit 1
+    fi
+}
+
+# ── Git worktree discovery ────────────────────────────────────────────────
+
+detect_box_context
+
+# ── Detect app context from the current tmux session ───────────────────
+# If the current session is an app session (<box>/app-slug or
+# <box>~<branch>/app-slug), capture the app slug so we can carry it
+# over to the target worktree.
+APP_SLUG=""
+if [[ -n "${TMUX:-}" ]]; then
+    _cur_session=$(tmux -S "$BOX_SOCKET" display-message -p '#S' 2>/dev/null) || _cur_session=""
+    if [[ "$_cur_session" == */* ]]; then
+        APP_SLUG="${_cur_session#*/}"
+    fi
+fi
+
+# Find shared git directory from current working directory.
+SHARED_GIT=$(sudo -u notpc git rev-parse --git-common-dir 2>/dev/null) || {
+    echo "ERROR: not inside a git repository (or git refused to operate" >&2
+    echo "       in this directory — see 'safe.directory' in git-config(1))." >&2
+    echo "       cd into a project worktree and try again." >&2
+    exit 1
+}
+[[ "$SHARED_GIT" != /* ]] && SHARED_GIT="$(realpath "$SHARED_GIT" 2>/dev/null || readlink -f "$SHARED_GIT" 2>/dev/null || echo "$PWD/$SHARED_GIT")"
+
+# Determine the current worktree path (for the * marker in fzf).
+CURRENT_WT_PATH=$(sudo -u notpc git rev-parse --show-toplevel 2>/dev/null) || CURRENT_WT_PATH=""
+
+# Capture the subdirectory relative to the worktree root so we can carry it
+# over when switching branches.  For example, if you're inside an app session
+# at /…/ttlivescore/apps/web and switch worktrees, the new session will open
+# in apps/web (when it exists on the target branch).
+REL_PATH=""
+if [[ -n "$CURRENT_WT_PATH" ]]; then
+    _cwd="$(pwd -P 2>/dev/null || pwd)"
+    if [[ "$_cwd" == "$CURRENT_WT_PATH"/* ]]; then
+        REL_PATH="${_cwd#$CURRENT_WT_PATH/}"
+    fi
+fi
+
+# Enumerate worktrees from the shared git directory.
+# Parse porcelain output: each worktree block has:
+#   worktree <path>
+#   HEAD <hash>
+#   branch refs/heads/<name>   OR   detached
+#
+# Uses parallel indexed arrays instead of an associative array to avoid
+# "bad array subscript" errors that can occur with branch names containing
+# special characters (e.g. "[detached]" prefix for detached HEADs).
+WT_BRANCHES=()   # display names (branch name or "[detached] <dir>")
+WT_PATHS=()      # corresponding worktree paths
+while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.*) ]]; then
+        _wt="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ ^branch\ refs/heads/(.*) ]]; then
+        WT_BRANCHES+=("${BASH_REMATCH[1]}")
+        WT_PATHS+=("$_wt")
+    elif [[ "$line" == "detached" ]]; then
+        WT_BRANCHES+=("[detached] ${_wt##*/}")
+        WT_PATHS+=("$_wt")
+    fi
+done < <(sudo -u notpc git --git-dir="$SHARED_GIT" worktree list --porcelain 2>/dev/null)
+
+if ((${#WT_BRANCHES[@]} == 0)); then
+    echo "No worktrees with branches found." >&2
+    exit 1
+fi
+
+# ── fzf selection ─────────────────────────────────────────────────────────
+
+# Separate regular branches from detached entries, sort each group.
+REGULAR=()
+DETACHED=()
+REGULAR_PATHS=()
+DETACHED_PATHS=()
+for i in "${!WT_BRANCHES[@]}"; do
+    local_branch="${WT_BRANCHES[$i]}"
+    local_path="${WT_PATHS[$i]}"
+    if [[ "$local_branch" == "[detached]"* ]]; then
+        DETACHED+=("$local_branch")
+        DETACHED_PATHS+=("$local_path")
+    else
+        REGULAR+=("$local_branch")
+        REGULAR_PATHS+=("$local_path")
+    fi
+done
+
+# Sort regular branches; preserve parallel path arrays via temp index.
+_sort_with_paths() {
+    local -n _in_branches=$1 _in_paths=$2 _out_branches=$3 _out_paths=$4
+    local tmpfile
+    tmpfile=$(mktemp /tmp/box-wt-sort.XXXXXX)
+    for i in "${!_in_branches[@]}"; do
+        printf '%s\t%s\n' "${_in_branches[$i]}" "${_in_paths[$i]}"
+    done | sort -t$'\t' -k1,1 > "$tmpfile"
+    _out_branches=()
+    _out_paths=()
+    while IFS=$'\t' read -r _b _p; do
+        _out_branches+=("$_b")
+        _out_paths+=("$_p")
+    done < "$tmpfile"
+    rm -f "$tmpfile"
+}
+
+SORTED_REGULAR=()
+SORTED_REGULAR_PATHS=()
+SORTED_DETACHED=()
+SORTED_DETACHED_PATHS=()
+_sort_with_paths REGULAR REGULAR_PATHS SORTED_REGULAR SORTED_REGULAR_PATHS
+_sort_with_paths DETACHED DETACHED_PATHS SORTED_DETACHED SORTED_DETACHED_PATHS
+
+# Build display list with * next to the current worktree.
+# Track the branch name ↔ path mapping via a parallel display+path array pair.
+DISP_BRANCHES=()   # branch names for display
+DISP_PATHS=()      # corresponding worktree paths
+for i in "${!SORTED_REGULAR[@]}"; do
+    local_b="${SORTED_REGULAR[$i]}"
+    local_p="${SORTED_REGULAR_PATHS[$i]}"
+    if [[ -n "$CURRENT_WT_PATH" && "$local_p" == "$CURRENT_WT_PATH" ]]; then
+        DISP_BRANCHES+=("* $local_b")
+    else
+        DISP_BRANCHES+=("  $local_b")
+    fi
+    DISP_PATHS+=("$local_p")
+done
+for i in "${!SORTED_DETACHED[@]}"; do
+    local_b="${SORTED_DETACHED[$i]}"
+    local_p="${SORTED_DETACHED_PATHS[$i]}"
+    if [[ -n "$CURRENT_WT_PATH" && "$local_p" == "$CURRENT_WT_PATH" ]]; then
+        DISP_BRANCHES+=("* $local_b")
+    else
+        DISP_BRANCHES+=("  $local_b")
+    fi
+    DISP_PATHS+=("$local_p")
+done
+
+SELECTED=$(printf '%s\n' "${DISP_BRANCHES[@]}" | fzf --prompt="Worktree> ")
+[[ -z "$SELECTED" ]] && exit 0
+
+# Strip the leading "* " or "  " to recover the branch name, then find its path.
+BRANCH="${SELECTED#\* }"
+BRANCH="${BRANCH#  }"
+# Locate which display entry matches and grab its path.
+WT_DIR=""
+for i in "${!DISP_BRANCHES[@]}"; do
+    local_disp="${DISP_BRANCHES[$i]#\* }"
+    local_disp="${local_disp#  }"
+    if [[ "$local_disp" == "$BRANCH" ]]; then
+        WT_DIR="${DISP_PATHS[$i]}"
+        break
+    fi
+done
+if [[ -z "$WT_DIR" ]]; then
+    echo "ERROR: could not resolve worktree path for '${BRANCH}'." >&2
+    exit 1
+fi
+
+# ── Session name construction ─────────────────────────────────────────────
+
+SAFE_BRANCH=$(sanitise_branch "$BRANCH")
+if [[ -n "$APP_SLUG" ]]; then
+    # App session: box name already encodes the project+branch, so the
+    # app session name is just <box>/<app-slug> regardless of branch.
+    SESSION_NAME="${BOX_NAME}/${APP_SLUG}"
+elif [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]]; then
+    SESSION_NAME="${BOX_NAME}"
+else
+    SESSION_NAME="${BOX_NAME}~${SAFE_BRANCH}"
+fi
+
+# ── Determine target directory (carry over REL_PATH if it exists) ──────
+TARGET_DIR="$WT_DIR"
+if [[ -n "$REL_PATH" && -d "$WT_DIR/$REL_PATH" ]]; then
+    TARGET_DIR="$WT_DIR/$REL_PATH"
+fi
+
+# ── Ensure session exists ─────────────────────────────────────────────────
+
+SESSION_EXISTED=true
+
+if ! tmux -S "$BOX_SOCKET" has-session -t "$SESSION_NAME" 2>/dev/null; then
+    SESSION_EXISTED=false
+
+    # Create a detached session inside the box's netns.
+    # The tmux server is already running inside the netns, so any
+    # process it spawns (including the shell) inherits the netns.
+    tmux -S "$BOX_SOCKET" new-session -d -s "$SESSION_NAME" \
+        -c "$TARGET_DIR" \
+        /bin/sh -c "hostname '${BOX_NAME}' 2>/dev/null || true; cd '${TARGET_DIR}' && exec sudo -u notpc /usr/bin/zsh -l"
+
+    # Set default-command so new windows in this session also open
+    # as notpc in the correct worktree directory.
+    tmux -S "$BOX_SOCKET" set-option -t "$SESSION_NAME" default-command \
+        "cd '${TARGET_DIR}' 2>/dev/null || true; exec sudo -u notpc /usr/bin/zsh -l"
+fi
+
+# ── Switch or attach ──────────────────────────────────────────────────────
+
+if [[ -n "${TMUX:-}" ]]; then
+    # Inside tmux: switch the current client to the target session.
+    if [[ "$SESSION_EXISTED" == "true" ]]; then
+        # Session already existed — create a fresh window at the target
+        # worktree so the user always lands in the right directory, even
+        # when reconnecting to a session whose active pane was left in a
+        # different (e.g. stale .claude/worktrees/) directory.
+        tmux -S "$BOX_SOCKET" new-window -t "$SESSION_NAME" -c "$TARGET_DIR" \
+            /bin/sh -c "hostname '${BOX_NAME}' 2>/dev/null || true; cd '${TARGET_DIR}' && exec sudo -u notpc /usr/bin/zsh -l"
+    fi
+    tmux -S "$BOX_SOCKET" switch-client -t "$SESSION_NAME"
+else
+    # Outside tmux: attach, replacing the current shell process.
+    exec tmux -S "$BOX_SOCKET" attach-session -t "$SESSION_NAME"
+fi
