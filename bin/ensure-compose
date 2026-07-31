@@ -1,0 +1,397 @@
+#!/usr/bin/env bash
+# ensure-compose — create & start a podman-compose project for a worktree session.
+#
+# Usage: ensure-compose <box_name> <worktree_dir> <project_name>
+#
+# Two modes (auto-detected):
+#   MACVLAN MODE  — when /etc/podman/ensure-compose.conf exists.
+#                   Rootful podman, each project gets its own LAN IP via
+#                   macvlan.  No port conflicts between projects.
+#   HOST MODE     — fallback.  Rootless podman, host networking.
+#                   Only one project can bind port 6901 at a time.
+#
+# Prints the compose file path to stdout on success.
+
+set -euo pipefail
+
+BOX_NAME="${1:?box name required}"
+WORKTREE_DIR="${2:?worktree dir required}"
+PROJECT_NAME="${3:?project name required}"
+
+COMPOSE_DIR="/tmp/compose/${BOX_NAME}"
+COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
+
+# ── Detect mode & configure podman socket ─────────────────────────────
+
+CONFIG_FILE="/etc/podman/ensure-compose.conf"
+USE_MACVLAN=false
+
+if [[ -f "${CONFIG_FILE}" ]]; then
+    # shellcheck source=/dev/null
+    source "${CONFIG_FILE}"
+    # CONTAINER_HOST is podman's native env var; DOCKER_HOST is needed by
+    # the docker-compose external provider that podman delegates to.
+    export CONTAINER_HOST="${PODMAN_SOCKET:-unix:///run/podman/podman.sock}"
+    export DOCKER_HOST="${CONTAINER_HOST}"
+    USE_MACVLAN=true
+
+    # Validate that the config has the required keys.
+    _macvlan_vars=(MACVLAN_NETWORK MACVLAN_DNS MACVLAN_IP_POOL_START MACVLAN_IP_POOL_END)
+    for _var in "${_macvlan_vars[@]}"; do
+        if [[ -z "${!_var:-}" ]]; then
+            echo "ERROR: ${CONFIG_FILE} is missing required key '${_var}'." >&2
+            echo "       Re-run 'sudo ensure-macvlan' to regenerate it." >&2
+            exit 1
+        fi
+    done
+else
+    # Rootless fallback — podman respects CONTAINER_HOST; docker-compose needs DOCKER_HOST.
+    export CONTAINER_HOST="unix:///run/user/1000/podman/podman.sock"
+    export DOCKER_HOST="${CONTAINER_HOST}"
+fi
+
+# ── IP allocation helpers (macvlan mode only) ─────────────────────────
+
+IP_STATE_FILE="/tmp/compose/ip-allocations.txt"
+
+allocate_ips() {
+    local box_name="$1"
+    local pool_start pool_end
+    pool_start="${MACVLAN_IP_POOL_START:-192.168.0.200}"
+    pool_end="${MACVLAN_IP_POOL_END:-192.168.0.239}"
+
+    local base="${pool_start%.*}"
+    local start_oct="${pool_start##*.}"
+    local end_oct="${pool_end##*.}"
+
+    touch "${IP_STATE_FILE}" 2>/dev/null || {
+        echo "ERROR: cannot write to ${IP_STATE_FILE}" >&2
+        return 1
+    }
+
+    # Return existing allocation if present.
+    local existing
+    existing=$(grep "^${box_name} " "${IP_STATE_FILE}" 2>/dev/null || true)
+    if [[ -n "${existing}" ]]; then
+        echo "${existing}" | cut -d' ' -f2
+        return 0
+    fi
+
+    # Collect taken last-octets.
+    declare -A taken_octets
+    while IFS=' ' read -r _ ip; do
+        [[ -n "${ip}" ]] && taken_octets["${ip##*.}"]=1
+    done < "${IP_STATE_FILE}"
+
+    # Find first free IP.
+    local i
+    for ((i = start_oct; i <= end_oct; i++)); do
+        if [[ -z "${taken_octets[$i]:-}" ]]; then
+            local dev_ip="${base}.${i}"
+            echo "${box_name} ${dev_ip}" >> "${IP_STATE_FILE}"
+            echo "${dev_ip}"
+            return 0
+        fi
+    done
+
+    echo "ERROR: No free IP in pool ${pool_start}–${pool_end}." >&2
+    echo "       Free some by removing stale entries from ${IP_STATE_FILE}," >&2
+    echo "       or expand the pool in ${CONFIG_FILE}." >&2
+    return 1
+}
+
+free_ips() {
+    local box_name="$1"
+    [[ -f "${IP_STATE_FILE}" ]] || return 0
+    grep -v "^${box_name} " "${IP_STATE_FILE}" > "${IP_STATE_FILE}.tmp" && \
+        mv "${IP_STATE_FILE}.tmp" "${IP_STATE_FILE}"
+}
+
+# ── Compose-file generation ───────────────────────────────────────────
+
+generate_compose_host() {
+    # Host-network mode (original behaviour).
+    # shellcheck disable=SC2016
+    cat > "${COMPOSE_FILE}" <<COMPOSE
+services:
+  dev:
+    image: archlinux:latest
+    container_name: ${BOX_NAME}-dev
+    privileged: true
+    network_mode: host
+    ipc: host
+    pid: host
+    security_opt:
+      - label=disable
+      - apparmor=unconfined
+    ulimits:
+      nofile: { soft: 1048576, hard: 1048576 }
+      nproc: { soft: 60674, hard: 60674 }
+    volumes:
+      - ${WORKTREE_DIR}:/workspace:z
+      - /home/notpc:/home/notpc:rslave
+      - /mnt/data:/mnt/data:rslave
+      - /home/notpc/.cache/pacman:/var/cache/pacman/pkg
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - \${XDG_RUNTIME_DIR:-/run/user/1000}:/run/user/1000
+      - /run/user/1000/podman/podman.sock:/run/user/1000/podman/podman.sock:ro
+    environment:
+      - DISPLAY=\${DISPLAY}
+      - WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-}
+      - XDG_RUNTIME_DIR=/run/user/1000
+      - CONTAINER_ID=${BOX_NAME}
+      - PROJECT_NAME=${PROJECT_NAME}
+      - container=podman
+      - HOME=/home/notpc
+      - SHELL=/usr/bin/zsh
+      - TERM=\${TERM:-xterm-256color}
+      - DOCKER_HOST=unix:///run/user/1000/podman/podman.sock
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+
+  brave-browser:
+    image: kasmweb/brave:1.16.0
+    container_name: ${BOX_NAME}-browser
+    ports:
+      - "6901:6901"
+    environment:
+      - VNC_PW=Password123
+    shm_size: "512m"
+    restart: unless-stopped
+COMPOSE
+}
+
+generate_compose_macvlan() {
+    local dev_ip="$1"
+    local network="$2"
+    local dns="$3"
+
+    cat > "${COMPOSE_FILE}" <<COMPOSE
+services:
+  dev:
+    image: archlinux:latest
+    container_name: ${BOX_NAME}-dev
+    privileged: true
+    ipc: host
+    pid: host
+    security_opt:
+      - label=disable
+      - apparmor=unconfined
+    ulimits:
+      nofile: { soft: 1048576, hard: 1048576 }
+      nproc: { soft: 60674, hard: 60674 }
+    volumes:
+      - ${WORKTREE_DIR}:/workspace:z
+      - /home/notpc:/home/notpc:rslave
+      - /mnt/data:/mnt/data:rslave
+      - /home/notpc/.cache/pacman:/var/cache/pacman/pkg
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - \${XDG_RUNTIME_DIR:-/run/user/1000}:/run/user/1000
+      - /run/podman/podman.sock:/run/podman/podman.sock:ro
+    environment:
+      - DISPLAY=\${DISPLAY}
+      - WAYLAND_DISPLAY=\${WAYLAND_DISPLAY:-}
+      - XDG_RUNTIME_DIR=/run/user/1000
+      - CONTAINER_ID=${BOX_NAME}
+      - PROJECT_NAME=${PROJECT_NAME}
+      - container=podman
+      - HOME=/home/notpc
+      - SHELL=/usr/bin/zsh
+      - TERM=\${TERM:-xterm-256color}
+      - DOCKER_HOST=unix:///run/podman/podman.sock
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    hostname: ${BOX_NAME}
+    command:
+      - /bin/sh
+      - -c
+      - "mkdir -p /run/dbus; dbus-daemon --system --fork 2>/dev/null || true; if ! command -v avahi-daemon >/dev/null 2>&1; then pacman -Sy --noconfirm dbus avahi 2>/dev/null || true; fi; sed -i 's/^use-ipv6=yes/use-ipv6=no/' /etc/avahi/avahi-daemon.conf 2>/dev/null || true; ip link add name eth-dummy type veth peer name veth-dummy-peer 2>/dev/null || true; ip link set eth-dummy up 2>/dev/null || true; ip link set veth-dummy-peer up 2>/dev/null || true; avahi-daemon --no-drop-root --daemonize 2>/dev/null || true; sleep infinity"
+    networks:
+      ${network}:
+        ipv4_address: ${dev_ip}
+    dns:
+      - ${dns}
+
+  brave-browser:
+    image: kasmweb/brave:1.16.0
+    container_name: ${BOX_NAME}-browser
+    network_mode: "service:dev"
+    shm_size: "512m"
+    restart: unless-stopped
+    environment:
+      - VNC_PW=Password123
+    depends_on:
+      - dev
+
+networks:
+  ${network}:
+    external: true
+COMPOSE
+}
+
+# ── Provisioning (shared) ─────────────────────────────────────────────
+
+provision_container() {
+    local box_name="$1"
+
+    echo "Provisioning container '${box_name}' …" >&2
+    if podman compose -p "${box_name}" -f "${COMPOSE_FILE}" exec -u root dev \
+        /bin/sh -c '
+            # ── User setup ─────────────────────────────────────────
+            if ! getent passwd 1000 >/dev/null 2>&1; then
+                groupadd -g 1000 notpc 2>/dev/null || true
+                useradd -u 1000 -g 1000 -M -s /usr/bin/zsh notpc || exit 1
+            fi
+            usermod -aG wheel notpc 2>/dev/null || true
+            echo "notpc ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/notpc-nopasswd
+
+            # ── System packages (must live in /usr) ────────────────
+            if ! command -v zsh >/dev/null 2>&1; then
+                pacman-key --init 2>/dev/null || true
+                pacman-key --populate archlinux 2>/dev/null || true
+                pacman -Sy --noconfirm zsh sudo fzf || exit 1
+            fi
+            if ! command -v sudo >/dev/null 2>&1; then
+                pacman -Sy --noconfirm sudo || exit 1
+            fi
+            if ! command -v avahi-daemon >/dev/null 2>&1; then
+                pacman -Sy --noconfirm dbus avahi || exit 1
+            fi
+
+            # ── Shared dev-tool root (~/.local/pacroot) ────────────
+            ALT_ROOT="/home/notpc/.local/pacroot"
+            if [ ! -f "$ALT_ROOT/.initialized" ]; then
+                echo "→ Initializing shared dev-tool root at ${ALT_ROOT} …"
+                mkdir -p "$ALT_ROOT"/{etc/pacman.d,var/lib/pacman,var/cache/pacman/pkg,usr}
+                cp /etc/pacman.conf      "$ALT_ROOT/etc/pacman.conf"     2>/dev/null || true
+                cp /etc/pacman.d/mirrorlist "$ALT_ROOT/etc/pacman.d/mirrorlist" 2>/dev/null || true
+                pacman-key --init --gpgdir "$ALT_ROOT/etc/pacman.d/gnupg" 2>/dev/null || true
+                pacman-key --populate archlinux --gpgdir "$ALT_ROOT/etc/pacman.d/gnupg" 2>/dev/null || true
+                pacman --root "$ALT_ROOT" --dbpath "$ALT_ROOT/var/lib/pacman" -Sy --noconfirm 2>/dev/null || true
+                pacman --root "$ALT_ROOT" --dbpath "$ALT_ROOT/var/lib/pacman" -S --noconfirm \
+                    luajit nvim tmux git starship 2>/dev/null || true
+                chown -R 1000:1000 "$ALT_ROOT"
+                touch "$ALT_ROOT/.initialized"
+            fi
+
+            # ── Shell integration (add to shared .zshrc once) ──────
+            ZSHRC="/home/notpc/.zshrc"
+            if ! grep -q "pacroot" "$ZSHRC" 2>/dev/null; then
+                cat >> "$ZSHRC" << "ZEOF"
+
+# Shared dev-tool root (installed once, available in all containers)
+export PATH="$HOME/.local/pacroot/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$HOME/.local/pacroot/usr/lib:$LD_LIBRARY_PATH"
+export MANPATH="$HOME/.local/pacroot/usr/share/man:$MANPATH"
+export PKG_CONFIG_PATH="$HOME/.local/pacroot/usr/lib/pkgconfig:$PKG_CONFIG_PATH"
+ZEOF
+                chown 1000:1000 "$ZSHRC"
+            fi
+
+            # ── Avahi ──────────────────────────────────────────────
+            sed -i "s/^use-ipv6=yes/use-ipv6=no/" /etc/avahi/avahi-daemon.conf 2>/dev/null || true
+            dbus-daemon --system --fork 2>/dev/null || true
+            avahi-daemon --no-drop-root --daemonize 2>/dev/null || true
+        ' 2>&1; then
+        touch "${COMPOSE_DIR}/.provisioned"
+        echo "Provisioning complete for '${box_name}'." >&2
+    else
+        echo "ERROR: provisioning failed for '${box_name}'." >&2
+        echo "       The dev container may be missing zsh or user 1000." >&2
+        echo "       Try: podman compose -p ${box_name} -f ${COMPOSE_FILE} exec -u root dev /bin/sh" >&2
+        return 1
+    fi
+}
+
+# ── Port-6901 conflict resolution (host mode only) ────────────────────
+
+resolve_port_conflict() {
+    [[ "${USE_MACVLAN}" == "true" ]] && return 0   # macvlan = no conflicts
+
+    for _cname in $(podman ps -a --format '{{.Names}}' 2>/dev/null); do
+        if [[ "${_cname}" == "${BOX_NAME}-browser" ]]; then
+            continue
+        fi
+        if podman port "${_cname}" 2>/dev/null | grep -q ':6901'; then
+            echo "Port 6901 is in use by '${_cname}' — stopping it …" >&2
+            podman stop "${_cname}" 2>/dev/null || true
+            podman rm -f "${_cname}" 2>/dev/null || true
+            sleep 1
+            break
+        fi
+    done
+}
+
+# ── Orphan-container cleanup ──────────────────────────────────────────
+
+cleanup_orphans() {
+    for container_name in "${BOX_NAME}-dev" "${BOX_NAME}-browser"; do
+        if podman container inspect "${container_name}" &>/dev/null 2>&1; then
+            echo "Removing orphan container '${container_name}' …" >&2
+            podman rm -f "${container_name}" 2>/dev/null || true
+        fi
+    done
+}
+
+# ── Main logic ────────────────────────────────────────────────────────
+
+if [[ -f "${COMPOSE_FILE}" ]]; then
+    _dev_running=$(podman container inspect "${BOX_NAME}-dev" --format '{{.State.Running}}' 2>/dev/null || true)
+
+    if [[ "${_dev_running}" == "true" ]]; then
+        # Containers are already up — ensure they're provisioned.
+        if [[ ! -f "${COMPOSE_DIR}/.provisioned" ]]; then
+            provision_container "${BOX_NAME}" || exit 1
+        fi
+        printf '%s\n' "${COMPOSE_FILE}"
+        exit 0
+    fi
+
+    # Compose file exists but containers aren't running — tear down stale state.
+    # In macvlan mode, keep the IP allocation (the project still "owns" those IPs).
+    echo "Cleaning up stale containers for '${BOX_NAME}' …" >&2
+    podman compose -p "${BOX_NAME}" -f "${COMPOSE_FILE}" down --remove-orphans 2>/dev/null || true
+    cleanup_orphans
+
+    # Refresh the compose file in case the template changed.
+    if [[ "${USE_MACVLAN}" == "true" ]]; then
+        # Re-read existing IP allocation — don't allocate new ones.
+        _existing_ip=$(grep "^${BOX_NAME} " "${IP_STATE_FILE}" 2>/dev/null | awk '{print $2}' || true)
+        if [[ -z "${_existing_ip}" ]]; then
+            # Allocation was lost — grab a fresh one.
+            _existing_ip=$(allocate_ips "${BOX_NAME}") || exit 1
+        fi
+        generate_compose_macvlan "${_existing_ip}" \
+            "${MACVLAN_NETWORK}" "${MACVLAN_DNS}"
+    else
+        generate_compose_host
+    fi
+else
+    # Fresh project — generate compose file.
+    mkdir -p "${COMPOSE_DIR}"
+
+    if [[ "${USE_MACVLAN}" == "true" ]]; then
+        _dev_ip=$(allocate_ips "${BOX_NAME}") || exit 1
+        echo "Allocated IP — dev: ${_dev_ip}" >&2
+        generate_compose_macvlan "${_dev_ip}" \
+            "${MACVLAN_NETWORK}" "${MACVLAN_DNS}"
+    else
+        generate_compose_host
+    fi
+fi
+
+# ── Resolve port conflicts & start ────────────────────────────────────
+
+resolve_port_conflict
+
+echo "Starting containers for '${BOX_NAME}' …" >&2
+podman compose -p "${BOX_NAME}" -f "${COMPOSE_FILE}" up -d
+
+# ── Provision ─────────────────────────────────────────────────────────
+
+provision_container "${BOX_NAME}" || exit 1
+
+printf '%s\n' "${COMPOSE_FILE}"
