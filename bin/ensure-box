@@ -287,6 +287,22 @@ box_socket_dir()  { echo "${TMUX_SOCKET_DIR}/${BOX_NAME}"; }
 box_tmux_socket() { echo "$(box_socket_dir)/tmux.sock"; }
 box_exists()      { [[ -f "$(box_state_file)" ]]; }
 
+# When --dir is not given, detect the git main worktree so the box always
+# starts in the primary worktree, not in a stale .claude/worktrees/ dir.
+_resolve_work_dir() {
+    [[ -n "${WORK_DIR}" ]] && return 0        # --dir takes precedence
+    local shared_git main_wt
+    if shared_git=$(sudo -u notpc git rev-parse --git-common-dir 2>/dev/null); then
+        main_wt=$(sudo -u notpc git --git-dir="$shared_git" worktree list --porcelain 2>/dev/null \
+            | awk '/^worktree /{wt=$2} /^branch refs\/heads\/(main|master)$/{print wt; exit}')
+        if [[ -n "$main_wt" && -d "$main_wt" ]]; then
+            WORK_DIR="$main_wt"
+            return 0
+        fi
+    fi
+    WORK_DIR="/home/notpc"   # fallback
+}
+
 mark_box_created() {
     mkdir -p "$(dirname "$(box_state_file)")"
     cat > "$(box_state_file)" <<EOF
@@ -769,6 +785,7 @@ cmd_stop() {
 # ── Ensure (create + enter) ────────────────────────────────────────────────
 
 cmd_ensure() {
+    _resolve_work_dir
     _build_dbus_env
 
     if box_exists; then
