@@ -22,7 +22,6 @@ return {
 				integrations = {
 					aerial = true,
 					alpha = true,
-					bufferline = true,
 					cmp = true,
 					dashboard = true,
 					flash = true,
