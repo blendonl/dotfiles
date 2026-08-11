@@ -88,5 +88,9 @@ map("n", "<leader>p", '"0p', { desc = "Paste from 0 register" })
 
 map("n", "<leader>bo", "<Cmd>%bd|e#<CR>", { desc = "Delete other buffers" })
 
+map("n", "<leader>bf", function()
+	require("config.buffer-feed").toggle()
+end, { desc = "Buffer feed (all buffers, one scroll)" })
+
 map("n", "<leader>bb", "<C-^>", { desc = "Next buffer" })
 map("n", "<leader>bd", "<CMD>bdelete<CR>", { desc = "Delete Buffer" })

@@ -37,6 +37,7 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 
 require("config.options")
 require("config.tasks")
+require("config.buffer-feed")
 require("config.keybinds")
 require("config.commands")
 require("config.lsp")
