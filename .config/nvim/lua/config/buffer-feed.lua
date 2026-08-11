@@ -21,6 +21,8 @@ local NOT_A_COLOUR = { conceal = true, spell = true, nospell = true, none = true
 local state = {
   buf = nil,      -- the feed scratch buffer, reused across opens
   tab = nil,      -- tabpage the feed was opened in, so `q` only closes our own
+  win = nil,      -- window the feed occupies, to notice it being taken over
+  origin = nil,   -- window the feed was opened from, where files should land
   map = {},       -- feed lnum -> { buf = <source bufnr>, line = <source lnum> }
   owner = {},     -- feed lnum -> source bufnr, headers and spacers included
   first = {},     -- source bufnr -> its first content lnum in the feed
@@ -237,12 +239,16 @@ function M.jump()
   end
 
   local col = math.max(vim.fn.col(".") - 1, 0)
+  -- Handing the window over to the source buffer is deliberate here, so the
+  -- takeover guard below must not undo it.
+  state.releasing = true
   M.close()
   vim.api.nvim_set_current_buf(entry.buf)
   local last = vim.api.nvim_buf_line_count(entry.buf)
   local line = math.min(entry.line, last)
   pcall(vim.api.nvim_win_set_cursor, 0, { line, col })
-  vim.cmd("normal! zz")
+  pcall(vim.cmd, "normal! zz")
+  state.releasing = false
 end
 
 function M.close()
@@ -250,7 +256,7 @@ function M.close()
     vim.api.nvim_set_current_tabpage(state.tab)
     vim.cmd("tabclose")
   end
-  state.tab = nil
+  state.tab, state.win = nil, nil
 end
 
 function M.refresh()
@@ -385,9 +391,11 @@ function M.open()
     keymaps(state.buf)
   end
 
+  state.origin = vim.api.nvim_get_current_win()
   vim.cmd("tabnew")
   local throwaway = vim.api.nvim_get_current_buf()
   win = vim.api.nvim_get_current_win()
+  state.win = win
   state.tab = vim.api.nvim_get_current_tabpage()
   vim.api.nvim_win_set_buf(win, state.buf)
   if throwaway ~= state.buf and vim.api.nvim_buf_is_valid(throwaway) then
@@ -436,6 +444,46 @@ vim.api.nvim_create_autocmd({ "TabEnter", "WinEnter" }, {
     if state.buf and vim.api.nvim_get_current_buf() == state.buf then
       schedule_refresh()
     end
+  end,
+})
+
+-- Pickers open their pick in whatever window is current, so triggering one from
+-- the feed window would quietly swallow the feed. Hand the file to the window
+-- the feed was opened from and take our own window back.
+vim.api.nvim_create_autocmd("BufWinEnter", {
+  group = group,
+  callback = function(ev)
+    if state.releasing
+        or not state.buf
+        or ev.buf == state.buf
+        or not state.win
+        or not vim.api.nvim_win_is_valid(state.win)
+        or vim.api.nvim_win_get_buf(state.win) ~= ev.buf
+    then
+      return
+    end
+
+    local intruder = ev.buf
+    local win = state.win
+    vim.schedule(function()
+      if not (vim.api.nvim_win_is_valid(win) and vim.api.nvim_buf_is_valid(intruder)) then
+        return
+      end
+      state.releasing = true
+      vim.api.nvim_win_set_buf(win, state.buf)
+      window_options(win)
+
+      if state.origin and vim.api.nvim_win_is_valid(state.origin) then
+        vim.api.nvim_set_current_win(state.origin)
+        vim.api.nvim_win_set_buf(state.origin, intruder)
+      else
+        -- Nowhere left to put it; a tab of its own beats losing the file.
+        vim.cmd("tabnew")
+        vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), intruder)
+      end
+      state.releasing = false
+      schedule_refresh()
+    end)
   end,
 })
 
