@@ -4,6 +4,9 @@
 -- A Neovim window renders exactly one buffer, so the feed is a rendered copy of
 -- the others rather than the others themselves. That makes it read-only: <CR>
 -- jumps to the real buffer at the line (and column) under the cursor.
+--
+-- Sections track the buffer list as it changes. `dd` closes the buffer under
+-- the cursor outright; `x` only drops it from the feed and leaves it open.
 
 local M = {}
 
@@ -16,24 +19,32 @@ local MAX_HIGHLIGHT_LINES = 5000
 local NOT_A_COLOUR = { conceal = true, spell = true, nospell = true, none = true }
 
 local state = {
-  buf = nil,    -- the feed scratch buffer, reused across opens
-  tab = nil,    -- tabpage the feed was opened in, so `q` only closes our own
-  map = {},     -- feed lnum -> { buf = <source bufnr>, line = <source lnum> }
-  header = {},  -- feed lnum -> true
-  headers = {}, -- sorted list of header lnums, for [[ and ]]
+  buf = nil,      -- the feed scratch buffer, reused across opens
+  tab = nil,      -- tabpage the feed was opened in, so `q` only closes our own
+  map = {},       -- feed lnum -> { buf = <source bufnr>, line = <source lnum> }
+  owner = {},     -- feed lnum -> source bufnr, headers and spacers included
+  first = {},     -- source bufnr -> its first content lnum in the feed
+  header = {},    -- feed lnum -> true
+  headers = {},   -- sorted list of header lnums, for [[ and ]]
+  hidden = {},    -- source bufnr -> true, dropped from the feed but still open
+  building = false,
 }
 
-local function feed_visible()
+-- The feed usually sits in its own tabpage, and bufwinid() only ever looks at
+-- the current one -- win_findbuf searches every tabpage, which is what lets an
+-- edit made elsewhere refresh the feed.
+local function feed_win()
   if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then
     return -1
   end
-  return vim.fn.bufwinid(state.buf)
+  return vim.fn.win_findbuf(state.buf)[1] or -1
 end
 
 local function collect()
   local bufs = {}
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
     if b ~= state.buf
+        and not state.hidden[b]
         and vim.bo[b].buflisted
         and vim.bo[b].buftype == ""
         and vim.api.nvim_buf_get_name(b) ~= ""
@@ -42,6 +53,19 @@ local function collect()
     end
   end
   return bufs
+end
+
+local function hidden_count()
+  local n = 0
+  for b in pairs(state.hidden) do
+    -- Drop entries whose buffer has since been wiped; bufnrs get reused.
+    if vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted then
+      n = n + 1
+    else
+      state.hidden[b] = nil
+    end
+  end
+  return n
 end
 
 local function header_text(name, count)
@@ -117,30 +141,41 @@ end
 
 local function build()
   local feed = state.buf
-  local lines, map, header, headers, sections = {}, {}, {}, {}, {}
+  local lines, map, owner, first, header, headers, sections = {}, {}, {}, {}, {}, {}, {}
 
   for _, b in ipairs(collect()) do
     vim.fn.bufload(b)
     local src = vim.api.nvim_buf_get_lines(b, 0, -1, false)
     local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":~:.")
 
+    -- The blank line before a header belongs to the section it introduces, so
+    -- `dd` works anywhere in a section including its top edge.
     if #lines > 0 then
       lines[#lines + 1] = ""
+      owner[#lines] = b
     end
     lines[#lines + 1] = header_text(name, #src)
+    owner[#lines] = b
     header[#lines] = true
     headers[#headers + 1] = #lines
 
     local offset = #lines -- 0-indexed row the first content line lands on
+    first[b] = #lines + 1
     for i, line in ipairs(src) do
       lines[#lines + 1] = line
       map[#lines] = { buf = b, line = i }
+      owner[#lines] = b
     end
     sections[#sections + 1] = { buf = b, offset = offset, count = #src }
   end
 
+  local hidden = hidden_count()
   if #lines == 0 then
-    lines = { "No listed buffers." }
+    lines = { hidden > 0 and "All buffers hidden." or "No listed buffers." }
+  end
+  if hidden > 0 then
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = ("── %d buffer(s) hidden -- press X to bring them back "):format(hidden)
   end
 
   vim.bo[feed].modifiable = true
@@ -161,7 +196,8 @@ local function build()
 
   vim.bo[feed].modifiable = false
   vim.bo[feed].modified = false
-  state.map, state.header, state.headers = map, header, headers
+  state.map, state.owner, state.first = map, owner, first
+  state.header, state.headers = header, headers
 end
 
 -- Fold each file into one section.
@@ -178,17 +214,18 @@ function M.statuscolumn()
   return ("%4d "):format(entry.line)
 end
 
+-- The source buffer the cursor is sitting in, header and spacer lines included.
+local function buf_at_cursor()
+  return state.owner[vim.fn.line(".")]
+end
+
 function M.jump()
   local lnum = vim.fn.line(".")
   local entry = state.map[lnum]
   if not entry then
     -- On a header or spacer: take the first content line of that section.
-    for probe = lnum + 1, lnum + 2 do
-      entry = state.map[probe]
-      if entry then
-        break
-      end
-    end
+    local owner = state.owner[lnum]
+    entry = owner and state.first[owner] and state.map[state.first[owner]]
   end
   if not entry then
     vim.notify("buffer-feed: nothing to jump to here", vim.log.levels.WARN)
@@ -217,12 +254,68 @@ function M.close()
 end
 
 function M.refresh()
-  if feed_visible() == -1 then
+  local win = feed_win()
+  -- A refresh can be triggered from a window in another tabpage, so save and
+  -- restore the view inside the feed's own window rather than the current one.
+  if win == -1 or state.building then
     return
   end
-  local view = vim.fn.winsaveview()
-  build()
-  vim.fn.winrestview(view)
+  state.building = true
+  pcall(vim.api.nvim_win_call, win, function()
+    local view = vim.fn.winsaveview()
+    build()
+    view.lnum = math.min(view.lnum, vim.api.nvim_buf_line_count(state.buf))
+    view.topline = math.min(view.topline, vim.api.nvim_buf_line_count(state.buf))
+    vim.fn.winrestview(view)
+  end)
+  state.building = false
+end
+
+-- Delete the buffer the cursor is in, the way <leader>bd already does it.
+function M.remove(force)
+  local buf = buf_at_cursor()
+  if not buf or not vim.api.nvim_buf_is_valid(buf) then
+    vim.notify("buffer-feed: no buffer under the cursor", vim.log.levels.WARN)
+    return
+  end
+
+  local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":~:.")
+  if vim.bo[buf].modified and not force then
+    local choice = vim.fn.confirm(("Save changes to %q?"):format(name), "&Yes\n&No\n&Cancel")
+    if choice == 1 then
+      vim.api.nvim_buf_call(buf, function() vim.cmd("write") end)
+    elseif choice == 2 then
+      force = true
+    else
+      return
+    end
+  end
+
+  -- mini.bufremove keeps the window layout intact; fall back if it is absent.
+  local ok, bufremove = pcall(require, "mini.bufremove")
+  if ok then
+    bufremove.delete(buf, force)
+  else
+    pcall(vim.api.nvim_buf_delete, buf, { force = force })
+  end
+  state.hidden[buf] = nil
+  M.refresh()
+end
+
+-- Drop a buffer from the feed without closing it.
+function M.hide()
+  local buf = buf_at_cursor()
+  if not buf then
+    vim.notify("buffer-feed: no buffer under the cursor", vim.log.levels.WARN)
+    return
+  end
+  state.hidden[buf] = true
+  M.refresh()
+end
+
+function M.unhide_all()
+  state.hidden = {}
+  M.refresh()
 end
 
 local function goto_header(dir)
@@ -257,6 +350,10 @@ local function keymaps(buf)
   map("R", M.refresh, "Rebuild feed")
   map("]]", function() goto_header(1) end, "Next file")
   map("[[", function() goto_header(-1) end, "Previous file")
+  map("dd", function() M.remove(false) end, "Delete this buffer")
+  map("D", function() M.remove(true) end, "Delete this buffer (force)")
+  map("x", M.hide, "Hide this buffer from the feed")
+  map("X", M.unhide_all, "Show hidden buffers again")
 end
 
 local function window_options(win)
@@ -271,7 +368,7 @@ local function window_options(win)
 end
 
 function M.open()
-  local win = feed_visible()
+  local win = feed_win()
   if win ~= -1 then
     vim.api.nvim_set_current_win(win)
     M.refresh()
@@ -302,7 +399,7 @@ function M.open()
 end
 
 function M.toggle()
-  if feed_visible() ~= -1 then
+  if feed_win() ~= -1 then
     M.close()
   else
     M.open()
@@ -311,13 +408,33 @@ end
 
 vim.api.nvim_create_user_command("BufferFeed", M.toggle, { desc = "Toggle the buffer feed" })
 
--- Keep an open feed in step with the buffers it is rendering.
+-- BufAdd fires before the file has been read, so rebuilds are scheduled rather
+-- than run inline; by the time one lands the new buffer has its contents. The
+-- pending flag collapses a burst -- `:args *.lua` -- into a single rebuild.
+local function schedule_refresh()
+  if state.pending or state.building or feed_win() == -1 then
+    return
+  end
+  state.pending = true
+  vim.schedule(function()
+    state.pending = false
+    M.refresh()
+  end)
+end
+
 local group = vim.api.nvim_create_augroup("BufferFeed", { clear = true })
-vim.api.nvim_create_autocmd({ "BufWritePost", "BufAdd", "BufDelete" }, {
+vim.api.nvim_create_autocmd(
+  { "BufAdd", "BufNew", "BufReadPost", "BufWritePost", "BufDelete", "BufFilePost" },
+  { group = group, callback = schedule_refresh }
+)
+
+-- Catch anything the events above miss: whenever you land back on the feed, it
+-- is current.
+vim.api.nvim_create_autocmd({ "TabEnter", "WinEnter" }, {
   group = group,
   callback = function()
-    if feed_visible() ~= -1 then
-      vim.schedule(M.refresh)
+    if state.buf and vim.api.nvim_get_current_buf() == state.buf then
+      schedule_refresh()
     end
   end,
 })
