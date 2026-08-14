@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+readonly SEPARATOR=' · '
+
+readonly RESET=$'\033[0m'
+readonly DIM=$'\033[2m'
+readonly RED=$'\033[31m'
+readonly GREEN=$'\033[32m'
+readonly YELLOW=$'\033[33m'
+readonly BLUE=$'\033[34m'
+readonly MAGENTA=$'\033[35m'
+readonly CYAN=$'\033[36m'
+
+readonly FIELD_QUERY='
+{
+  current_dir: (.workspace.current_dir // .cwd),
+  git_worktree: .workspace.git_worktree,
+  model: .model.display_name,
+  pr: (.pr | if . then ("PR #" + (.number | tostring) + " " + (.review_state // "open")) else null end),
+  worktree_name: .worktree.name,
+  worktree_branch: .worktree.branch,
+  context_used: .context_window.used_percentage,
+  context_left: .context_window.remaining_percentage,
+  context_input: .context_window.total_input_tokens,
+  context_size: .context_window.context_window_size,
+  five_hour: .rate_limits.five_hour.used_percentage,
+  five_hour_reset: .rate_limits.five_hour.resets_at,
+  seven_day: .rate_limits.seven_day.used_percentage,
+  seven_day_reset: .rate_limits.seven_day.resets_at
+}
+| with_entries(select(.value != null and .value != "" and .value != false))
+| to_entries[]
+| "\(.key)\t\(.value)"
+'
+
+declare -A field=()
+
+load_fields() {
+  local key value
+  while IFS=$'\t' read -r key value; do
+    field[$key]=$value
+  done < <(jq -r "$FIELD_QUERY" <<<"$1")
+}
+
+get() {
+  printf '%s' "${field[$1]:-}"
+}
+
+append_segment() {
+  local -n target=$1
+  local color=$2 text=$3
+  [[ -n $text ]] || return 0
+  target+=("${color}${text}${RESET}")
+}
+
+render_line() {
+  local segments=("$@")
+  ((${#segments[@]})) || return 0
+  local line=${segments[0]} segment
+  for segment in "${segments[@]:1}"; do
+    line+="${DIM}${SEPARATOR}${RESET}${segment}"
+  done
+  printf '%s\n' "$line"
+}
+
+directory_name() {
+  local path=${1%/}
+  if [[ -z $path ]]; then
+    printf '%s' "${1:+/}"
+    return 0
+  fi
+  printf '%s' "${path##*/}"
+}
+
+format_tokens() {
+  local tokens=$1
+  if ((tokens >= 1000000)); then
+    printf '%d.%dM' $((tokens / 1000000)) $((tokens % 1000000 / 100000))
+  elif ((tokens >= 1000)); then
+    printf '%d.%dk' $((tokens / 1000)) $((tokens % 1000 / 100))
+  else
+    printf '%d' "$tokens"
+  fi
+}
+
+format_percent() {
+  printf '%.0f%%' "$1"
+}
+
+format_reset() {
+  date -d "@$1" "+$2" 2>/dev/null
+}
+
+pressure_color() {
+  local percent=${1%%.*}
+  if ((${percent:-0} >= 90)); then
+    printf '%s' "$RED"
+  elif ((${percent:-0} >= 70)); then
+    printf '%s' "$YELLOW"
+  else
+    printf '%s' "$CYAN"
+  fi
+}
+
+current_branch() {
+  local directory=$1 branch
+  [[ -d $directory ]] || return 0
+  branch=$(git -C "$directory" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 0
+  [[ $branch == HEAD ]] && branch=$(git -C "$directory" rev-parse --short HEAD 2>/dev/null)
+  git -C "$directory" diff --quiet HEAD -- 2>/dev/null || branch+='*'
+  printf '%s' "$branch"
+}
+
+render_place() {
+  local current_dir segments=()
+  current_dir=$(get current_dir)
+
+  append_segment segments "$BLUE" "$(directory_name "$current_dir")"
+  append_segment segments "$GREEN" "$(get worktree_branch)"
+  [[ -n ${field[worktree_branch]:-} ]] ||
+    append_segment segments "$GREEN" "$(current_branch "$current_dir")"
+  append_segment segments "$GREEN" "${field[worktree_name]:+wt:${field[worktree_name]}}"
+  append_segment segments "$GREEN" "${field[git_worktree]:+wt:${field[git_worktree]}}"
+  append_segment segments "$YELLOW" "$(get pr)"
+
+  append_segment segments "$MAGENTA" "$(get model)"
+
+  render_line "${segments[@]}"
+}
+
+context_summary() {
+  local used=$(get context_used) input=$(get context_input) size=$(get context_size)
+  [[ -n $used ]] || return 0
+  local summary="ctx $(format_percent "$used")"
+  [[ -n $input && -n $size ]] &&
+    summary+=" ($(format_tokens "$input")/$(format_tokens "$size"))"
+  printf '%s' "$summary"
+}
+
+limit_summary() {
+  local label=$1 percent=$2 reset=$3 reset_format=$4
+  [[ -n $percent ]] || return 0
+  local summary="$label $(format_percent "$percent")"
+  [[ -n $reset ]] && summary+=" ↻$(format_reset "$reset" "$reset_format")"
+  printf '%s' "$summary"
+}
+
+render_usage() {
+  local segments=() used=$(get context_used)
+
+  append_segment segments "$(pressure_color "${used:-0}")" "$(context_summary)"
+  append_segment segments "$DIM" "${field[context_left]:+$(format_percent "${field[context_left]}") left}"
+
+  append_segment segments "$(pressure_color "$(get five_hour)")" \
+    "$(limit_summary 5h "$(get five_hour)" "$(get five_hour_reset)" '%H:%M')"
+  append_segment segments "$(pressure_color "$(get seven_day)")" \
+    "$(limit_summary 7d "$(get seven_day)" "$(get seven_day_reset)" '%a %H:%M')"
+
+  render_line "${segments[@]}"
+}
+
+main() {
+  load_fields "$(cat)"
+  render_place
+  render_usage
+}
+
+main "$@"
