@@ -51,6 +51,7 @@ ags.tmo
 !/.claude/
 /.claude/*
 !/.claude/skills/
+!/.claude/CLAUDE.md
 
 # Test artifacts
 .config/hypr/test.cat
