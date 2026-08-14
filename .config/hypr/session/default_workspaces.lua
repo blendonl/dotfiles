@@ -55,15 +55,13 @@ local function get_browser_url(name)
   return url
 end
 
--- Derive the project-specific tmux socket from the session name.
--- session-picker / project-picker use: ~/.tmux-socket-<project_name>
--- Session names are "<project_name>~<branch>".
+-- Derive the ensure-box tmux socket path from the session name.
+-- ensure-box creates sockets at: /tmp/tmux-ensure-box/<box_name>/tmux.sock
+-- Session names may be "<box_name>", "<box_name>~<branch>", or display
+-- names with slashes (e.g. "personal/ttlivescore").
 local function get_tmux_sock(sess)
-  local proj = sess:match('^([^~]+)~')
-  if proj then
-    return '~/.tmux-socket-' .. proj
-  end
-  return '~/.tmux-socket'
+  local box_name = sess:gsub('/', '-'):match('^([^~]+)')
+  return '/tmp/tmux-ensure-box/' .. box_name .. '/tmux.sock'
 end
 
 return {
@@ -74,8 +72,7 @@ return {
       if is_remote(dir) then
         local sess = get_remote_tmux_session(name) or name
         local sock = get_tmux_sock(sess)
-        -- Try project-specific socket first, fall back to default (legacy sessions)
-        return 'alacritty --command ssh -t devserver "tmux -S ' .. sock .. ' attach -t ' .. sess .. ' 2>/dev/null || tmux -S ~/.tmux-socket attach -t ' .. sess .. '"'
+        return 'alacritty --command ssh -t devserver "tmux -S ' .. sock .. ' attach -t ' .. sess .. '"'
       end
 
       -- Local: create tmux session if needed, then attach
@@ -141,7 +138,7 @@ return {
       if is_remote(dir) then
         local sess = get_remote_tmux_session(name) or name
         local sock = get_tmux_sock(sess)
-        return 'alacritty --command ssh -t devserver "tmux -S ' .. sock .. ' attach -t ' .. sess .. ' 2>/dev/null || tmux -S ~/.tmux-socket attach -t ' .. sess .. '"'
+        return 'alacritty --command ssh -t devserver "tmux -S ' .. sock .. ' attach -t ' .. sess .. '"'
       end
       return 'neovide --working-directory ' .. dir
     end,
