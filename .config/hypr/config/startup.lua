@@ -4,8 +4,10 @@ hl.on('hyprland.start', function()
   -- might trigger D-Bus activation of xdg-desktop-portal, otherwise the
   -- portal comes up without WAYLAND_DISPLAY/XDG_CURRENT_DESKTOP and screen
   -- sharing silently picks the wrong backend.
-  hl.dispatch(hl.dsp.exec_cmd('systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE QT_QPA_PLATFORMTHEME'))
-  hl.dispatch(hl.dsp.exec_cmd('dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE'))
+  hl.dispatch(hl.dsp.exec_cmd(
+  'systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE QT_QPA_PLATFORMTHEME'))
+  hl.dispatch(hl.dsp.exec_cmd(
+  'dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE'))
 
   -- Daemons
   hl.dispatch(hl.dsp.exec_cmd('fcitx5'))
