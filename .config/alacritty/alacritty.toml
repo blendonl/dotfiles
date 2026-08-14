@@ -29,3 +29,8 @@ import = ["/home/notpc/.config/alacritty/themes/catppuccin-mocha.toml"]
 # [terminal.shell] 
 # program = "tmux"
 
+
+[[keyboard.bindings]]
+key = "Return"
+mods = "Shift"
+chars = "\u001B\r"
