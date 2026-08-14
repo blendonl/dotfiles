@@ -12,7 +12,7 @@ hl.on('hyprland.start', function()
   -- Daemons
   hl.dispatch(hl.dsp.exec_cmd('fcitx5'))
   hl.dispatch(hl.dsp.exec_cmd('dunst'))
-  hl.dispatch(hl.dsp.exec_cmd('hypridle'))
+  -- hl.dispatch(hl.dsp.exec_cmd('hypridle'))
   hl.dispatch(hl.dsp.exec_cmd('udiskie &'))
   hl.dispatch(hl.dsp.exec_cmd('qs'))
 
