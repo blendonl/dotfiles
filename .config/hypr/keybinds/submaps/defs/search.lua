@@ -1,7 +1,7 @@
 local r = require('keybinds.submaps.core.registry')
 
 r.define('search', 'reset', function(bind)
-  bind('a', hl.dsp.exec_cmd('sherlock'),
+  bind('a', hl.dsp.exec_cmd('rofi -show drun'),
     { description = 'App launcher' })
   bind('v', hl.dsp.exec_cmd('cliphist list | wofi -dmenu | cliphist decode | wl-copy'),
     { description = 'Clipboard history' })
