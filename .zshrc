@@ -150,10 +150,21 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export NOTE_PATH="/mnt/data/notes"
 
 export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:/home/notpc/.local/bin"
-export ANDROID_HOME=$HOME/Android/Sdk
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
-export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
+# Android SDK: only export ANDROID_HOME when an SDK actually exists there,
+# otherwise Expo/adb warn about a non-existing path on every run. Plain `adb`
+# from the android-tools package lives in /usr/bin and needs none of this.
+unset ANDROID_HOME ANDROID_SDK_ROOT
+for _sdk in "$HOME/Android/Sdk" "$HOME/.local/share/Android/Sdk" /opt/android-sdk; do
+  if [[ -d $_sdk ]]; then
+    export ANDROID_HOME=$_sdk
+    export ANDROID_SDK_ROOT=$_sdk
+    export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin
+    break
+  fi
+done
+unset _sdk
+
+[[ -d /usr/lib/jvm/java-17-openjdk ]] && export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 # source ~/.config/kitty/pasteimage.sh
 
 # opencode
