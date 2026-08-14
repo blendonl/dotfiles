@@ -11,6 +11,7 @@ hl.window_rule({ name = 'new-to-do', match = { class = 'new-to-do' }, size = '45
 hl.window_rule({ name = 'checkout', match = { class = 'checkout' }, size = '80% 80%', float = true })
 hl.window_rule({ name = 'mkanban', match = { class = 'mkanban' }, size = '80% 80%', float = true })
 hl.window_rule({ name = 'neovide', match = { class = 'neovide' }, size = '80% 80%', float = true })
+hl.window_rule({ name = 'agent-dashboard', match = { class = 'agent-dashboard' }, size = '820 680', float = true, center = true })
 
 hl.window_rule({ name = 'xdg-portal-float', match = { class = '^(xdg-desktop-portal)$' }, float = true })
 hl.window_rule({ name = 'xdg-portal-gnome-float', match = { class = '^(xdg-desktop-portal-gnome)$' }, float = true })
