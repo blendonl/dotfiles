@@ -7,7 +7,7 @@ hl.define_submap('record', function()
 
   hl.bind('v', hl.dsp.exec_cmd('hyprshot -m region --clipboard-only && clipssh notpc@devserver'))
   hl.bind('s', function()
-    hl.dispatch(hl.dsp.exec_cmd('hyprshot -m region --clipboard-only'))
+    hl.dispatch(hl.dsp.exec_cmd('hyprshot -m region'))
   end
   , { description = 'Region screenshot' })
 
