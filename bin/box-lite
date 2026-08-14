@@ -26,6 +26,7 @@
 #                                       shared, isolated, netns
 #   box-lite --ensure <name> [--isolate] [--dir PATH]
 #                                       create the session, print its name
+#   box-lite --switch <session>         attach to / switch a client to it
 #   box-lite --preview <box> <wt>       fzf preview helper (internal)
 #   box-lite --exec-shell <tmux> <pane> netns shell entry (internal, root)
 
@@ -536,6 +537,17 @@ cmd_ensure() {
     fi
 }
 
+# Companion pickers (switch-worktree-lite) create their session with --ensure
+# and then hand the name back here, so the attach/switch dance — including the
+# detach-and-reattach needed when the caller sits on a legacy per-box server —
+# is not reimplemented anywhere else.
+cmd_switch() {
+    local sess="${1:-}"
+    [[ -z "$sess" ]] && die "--switch requires a session name"
+    session_exists "$sess" || die "no session named '${sess}' on the default server"
+    attach_or_switch "$sess"
+}
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 main() {
@@ -543,6 +555,7 @@ main() {
         --preview) shift; cmd_preview "$@"; exit 0 ;;
         --list)    cmd_list; exit 0 ;;
         --ensure)  shift; cmd_ensure "$@"; exit 0 ;;
+        --switch)  shift; cmd_switch "$@"; exit 0 ;;
         --help|-h) sed -n '2,/^$/p' "$0" | sed 's/^# \?//'; exit 0 ;;
         "")        ;;
         *)         die "unknown argument '$1' (try --help)" ;;
