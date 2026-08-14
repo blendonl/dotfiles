@@ -65,7 +65,7 @@ find_sessions() {
 
 # =========================================================================
 # Remote session discovery — delegates to devserver box-picker --list
-# Output format:  display_name\tworktree_path\ttmux_session_name
+# Output format:  display\tbox_name\tworktree_path\tip\ttmux_status\tbrowser
 # =========================================================================
 
 find_remote_sessions() {
@@ -187,9 +187,9 @@ local_sessions=$(find_sessions)
 REMOTE_META=$(mktemp)
 trap 'rm -f "$REMOTE_META"' EXIT
 
-while IFS=$'\t' read -r display path tmux_name; do
-    [[ -z "$path" ]] && continue
-    printf '%s\t%s\t%s\n' "$path" "$display" "$tmux_name" >> "$REMOTE_META"
+while IFS=$'\t' read -r display box_name wt_path _rest; do
+    [[ -z "$box_name" ]] && continue
+    printf '%s\t%s\t%s\n' "$wt_path" "$display" "$box_name" >> "$REMOTE_META"
 done < <(find_remote_sessions)
 
 # --- Build rofi input ----------------------------------------------------
@@ -218,16 +218,28 @@ if [[ "$selected" == "[remote] "* ]]; then
     # Look up metadata by display name (column 2)
     meta_line=$(awk -F'\t' -v d="$remote_display" '$2 == d {print; exit}' "$REMOTE_META")
     selected=$(echo "$meta_line" | cut -f1)          # actual devserver path
-    remote_tmux_session=$(echo "$meta_line" | cut -f3)  # e.g. "personal-foo~main"
+    remote_tmux_session=$(echo "$meta_line" | cut -f3)  # box_name, e.g. "personal-ttlivescore"
+    remote_box_name="$remote_tmux_session"
 
-    # box-picker uses project-specific sockets: ~/.tmux-socket-<project_name>
-    # Session names are "<project_name>~<branch>" — extract project_name.
-    remote_project_name="${remote_tmux_session%%~*}"
-    remote_tmux_sock="~/.tmux-socket-${remote_project_name}"
+    # ensure-box creates tmux sessions at /tmp/tmux-ensure-box/<box>/tmux.sock
+    remote_tmux_sock="/tmp/tmux-ensure-box/${remote_box_name}/tmux.sock"
 
-        # Only provision if the tmux session does not already exist on the devserver.
-        # Check the project-specific socket first, then fall back to the default
-        # socket (for legacy sessions created before project-specific sockets).
+    # Resolve the session name early so we can check whether state.json
+    # already has cached remote metadata for this session.
+    name=$(resolve_session_name "$selected")
+
+    # If state.json already has remote_tmux_session for this name, the
+    # container was provisioned before — skip the SSH has-session check
+    # entirely and go straight to the fast switch path.
+    already_initialized=false
+    if [[ -f "$STATE_FILE" ]]; then
+        cached_remote=$(jq -r --arg n "$name" '.sessions[$n].remote_tmux_session // empty' "$STATE_FILE" 2>/dev/null)
+        [[ -n "$cached_remote" ]] && already_initialized=true
+    fi
+
+    if ! $already_initialized; then
+        # Only provision if the tmux session does not already exist on the
+        # devserver.  Check the project-specific socket first.
         if ! ssh -o ConnectTimeout=10 "$DEV_SERVER" \
             "tmux -S ${remote_tmux_sock} has-session -t '$remote_tmux_session' 2>/dev/null || \
              tmux -S ~/.tmux-socket has-session -t '$remote_tmux_session' 2>/dev/null" 2>/dev/null; then
@@ -242,7 +254,7 @@ if [[ "$selected" == "[remote] "* ]]; then
     #!/usr/bin/env bash
     echo 'Preparing session: $remote_display'
     echo '========================================'
-    ssh -t -o LogLevel=ERROR '$DEV_SERVER' "$REMOTE_PICKER --ensure '$remote_display'"
+    ssh -t -o LogLevel=ERROR '$DEV_SERVER' "$REMOTE_PICKER --ensure '$remote_box_name'"
     _rc=\$?
     echo '========================================'
     if [[ \$_rc -eq 0 ]]; then
@@ -253,7 +265,7 @@ if [[ "$selected" == "[remote] "* ]]; then
     echo \$_rc > '$_ensure_rc_file'
     echo ''
     echo 'Closing in 3 seconds...'
-    sleep 3
+    sleep 50
 SCRIPT_EOF
 
         chmod +x "$_ensure_script"
@@ -306,75 +318,133 @@ SCRIPT_EOF
         done
 
         echo "$(date): remote session '$remote_tmux_session' ready (waited ${_waited}s)" >>"$LOG"
-        fi
-fi
+        fi    # if ! ssh has-session
+    fi        # if ! already_initialized
+fi            # if [[ "$selected" == "[remote] "* ]]
 
-name=$(resolve_session_name "$selected")
+# name already resolved above for remote sessions; resolve here for local
+[[ -z "$name" ]] && name=$(resolve_session_name "$selected")
 
-# --- Resolve browser URL ---------------------------------------------------
-# For remote sessions the browser container runs on the server with its own
-# LAN IP (macvlan).  Query the server's ip-allocations to get the correct
-# URL.  Local sessions with a compose setup are handled by the Lua callback.
-browser_url=""
-if $is_remote; then
-    # box-picker uses:  box_name="${project_name}-${branch}"
-    #                       session_name="${project_name}~${branch}"
-    # So: box_name = session_name with "~" → "-"
-    remote_box_name="${remote_tmux_session//\~/-}"
-    browser_url=$(ssh "$DEV_SERVER" "
-        if [[ -f /tmp/compose/ip-allocations.txt ]]; then
-            ip=\$(grep \"^${remote_box_name} \" /tmp/compose/ip-allocations.txt | awk '{print \$2}')
-            if [[ -n \"\$ip\" ]]; then
-                echo \"https://\${ip}:6901\"
-                exit 0
-            fi
-        fi
-        # Host-mode fallback (no macvlan configured on the server).
-        echo 'https://devserver:6901'
-    " 2>/dev/null || echo 'https://devserver:6901')
-    echo "$(date): browser URL for '$remote_box_name' → $browser_url" >>"$LOG"
+# --- Ensure browser container is alive (remote sessions) -----------------
+# Runs in the background so the session switch isn't delayed.  If the
+# container is already running this is a ~100ms no-op.  Otherwise it
+# opens a short-lived alacritty window for sudo + podman run.
+if $is_remote && $already_initialized; then
+    if ! ssh -o ConnectTimeout=5 "$DEV_SERVER" \
+        "podman container inspect ${remote_box_name}-browser --format '{{.State.Running}}' 2>/dev/null" 2>/dev/null \
+        | grep -q "true"; then
+        # Browser not running — start it non-blocking.  ensure-box needs
+        # sudo + tty, so we use a short-lived alacritty window.
+        _browser_script=$(mktemp)
+        cat > "$_browser_script" <<BROWSER_EOF
+#!/usr/bin/env bash
+echo 'Starting browser for: $remote_display'
+echo 'This window will close automatically.'
+ssh -t -o LogLevel=ERROR '$DEV_SERVER' "sudo podman rm -f ${remote_box_name}-browser 2>/dev/null; sudo podman run -d --name ${remote_box_name}-browser --network ns:/var/run/netns/${remote_box_name} --shm-size 512m -e VNC_PW=Password123 kasmweb/brave:1.16.0"
+echo 'Done.'
+sleep 3
+rm -f '$_browser_script'
+BROWSER_EOF
+        chmod +x "$_browser_script"
+        alacritty --class session-progress --title "Browser: $remote_display" \
+            --command "$_browser_script" &
+    fi
 fi
 
 # --- Persist state -------------------------------------------------------
 mkdir -p "$(dirname "$STATE_FILE")"
 [[ -f "$STATE_FILE" ]] || echo '{"sessions":{}}' > "$STATE_FILE"
 
-focus_ws_type=$(jq -r --arg name "$name" --arg dir "$selected" '
-  (.sessions[$name].last_workspace // "browser") as $old_ws
-  | .sessions[$name].last_workspace // "browser"
-' "$STATE_FILE" 2>/dev/null || echo "browser")
+# Read existing session data so we never drop cached fields.
+existing_session=$(jq --arg name "$name" '.sessions[$name] // {}' "$STATE_FILE" 2>/dev/null)
+
+# Extract all fields we need to preserve.  For remote sessions the
+# critical ones are remote_tmux_session, remote_tmux_sock, browser_url.
+# We read them once and write them back every time — no merge magic.
+existing_last_ws=$(echo "$existing_session" | jq -r '.last_workspace // "browser"' 2>/dev/null)
+existing_remote_tmux=$(echo "$existing_session" | jq -r '.remote_tmux_session // empty' 2>/dev/null)
+existing_remote_sock=$(echo "$existing_session" | jq -r '.remote_tmux_sock // empty' 2>/dev/null)
+existing_browser_url=$(echo "$existing_session" | jq -r '.browser_url // empty' 2>/dev/null)
+
+# --- Resolve remote metadata (cached or fresh) ---------------------------
+if $is_remote; then
+    # Prefer existing cached values; fall back to the ones resolved above.
+    browser_url="${existing_browser_url}"
+    [[ -n "$existing_remote_tmux" ]] && remote_tmux_session="$existing_remote_tmux"
+    [[ -n "$existing_remote_sock" ]] && remote_tmux_sock="$existing_remote_sock"
+
+    # If no cached browser URL, query the server (slow path, runs once).
+    if [[ -z "$browser_url" ]]; then
+        remote_box_name="${remote_tmux_session//\~/-}"
+        browser_url=$(ssh "$DEV_SERVER" "
+            if [[ -f /tmp/compose/ip-allocations.txt ]]; then
+                ip=\$(grep \"^${remote_box_name} \" /tmp/compose/ip-allocations.txt | awk '{print \$2}')
+                if [[ -n \"\$ip\" ]]; then
+                    echo \"https://\${ip}:6901\"
+                    exit 0
+                fi
+            fi
+            echo 'https://devserver:6901'
+        " 2>/dev/null || echo 'https://devserver:6901')
+        echo "$(date): browser URL for '$remote_box_name' → $browser_url" >>"$LOG"
+    fi
+fi
+
+focus_ws_type=$(echo "$existing_last_ws" | grep -v '^$' || echo "browser")
 
 if [[ "$focus_ws_type" == "browser" ]]; then
     ws=$(lua -e 'local s=dofile("'"$SESSIONS_LUA"'") for _,v in ipairs(s) do if v.dir=="'"$selected"'" then print(v.default_workspace or "browser") return end end' 2>/dev/null)
     [[ -n "$ws" ]] && focus_ws_type="$ws"
 fi
 
-# Persist to state.json — include remote_tmux_session for remote projects
+# Write state — always a full write with all fields explicitly listed.
+# Existing fields (last_workspace, remote metadata) are read above and
+# included here, so nothing is ever dropped.
+timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S")
 if $is_remote; then
-    jq --arg name "$name" --arg dir "$selected" --arg remote_tmux "$remote_tmux_session" --arg remote_sock "$remote_tmux_sock" --arg browser_url "$browser_url" '
-      .sessions |= with_entries(.value.active = "false")
-      | .sessions[$name] = {
-          dir: $dir,
-          last_workspace: (.sessions[$name].last_workspace // null),
-          active: "true",
-          last_active_ts: (now | strftime("%Y-%m-%dT%H:%M:%S")),
-          remote_tmux_session: $remote_tmux,
-          remote_tmux_sock: $remote_sock,
-          browser_url: $browser_url,
-        }
-      | .last_active = $name
-    ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+    jq -n --arg name "$name" \
+       --arg dir "$selected" \
+       --arg last_ws "$focus_ws_type" \
+       --arg ts "$timestamp" \
+       --arg remote_tmux "$remote_tmux_session" \
+       --arg remote_sock "$remote_tmux_sock" \
+       --arg browser_url "$browser_url" \
+       --argjson sessions "$(jq '.sessions' "$STATE_FILE")" '
+      {
+        sessions: ($sessions
+          | with_entries(.value.active = "false")
+          | .[$name] = {
+              dir: $dir,
+              last_workspace: $last_ws,
+              active: "true",
+              last_active_ts: $ts,
+              remote_tmux_session: $remote_tmux,
+              remote_tmux_sock: $remote_sock,
+              browser_url: $browser_url,
+            }
+        ),
+        last_active: $name
+      }
+    ' > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 else
-    jq --arg name "$name" --arg dir "$selected" '
-      .sessions |= with_entries(.value.active = "false")
-      | .sessions[$name] = {
-          dir: $dir,
-          last_workspace: (.sessions[$name].last_workspace // null),
-          active: "true",
-          last_active_ts: (now | strftime("%Y-%m-%dT%H:%M:%S"))
-        }
-      | .last_active = $name
-    ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+    jq -n --arg name "$name" \
+       --arg dir "$selected" \
+       --arg last_ws "$focus_ws_type" \
+       --arg ts "$timestamp" \
+       --argjson sessions "$(jq '.sessions' "$STATE_FILE")" '
+      {
+        sessions: ($sessions
+          | with_entries(.value.active = "false")
+          | .[$name] = {
+              dir: $dir,
+              last_workspace: $last_ws,
+              active: "true",
+              last_active_ts: $ts,
+            }
+        ),
+        last_active: $name
+      }
+    ' > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 fi
 
 # --- Register workspace rules --------------------------------------------
