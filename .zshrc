@@ -149,7 +149,7 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 
 export NOTE_PATH="/mnt/data/notes"
 
-export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:/home/notpc/.local/bin"
+export PATH="/mnt/data/personal/mkanban/dist:$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH:$HOME/.local/bin"
 # Android SDK: only export ANDROID_HOME when an SDK actually exists there,
 # otherwise Expo/adb warn about a non-existing path on every run. Plain `adb`
 # from the android-tools package lives in /usr/bin and needs none of this.
@@ -168,7 +168,7 @@ unset _sdk
 # source ~/.config/kitty/pasteimage.sh
 
 # opencode
-export PATH=/home/notpc/.opencode/bin:$PATH
+export PATH=$HOME/.opencode/bin:$PATH
 
 export ENABLE_LSP_TOOL=1
 
@@ -177,5 +177,5 @@ alias cadence-build="CGO_ENABLED=1 CADENCE_BACKEND_URL=https://cadence-api.blend
 
 
 # kimi-code
-export PATH="/home/notpc/.kimi-code/bin:$PATH"
+export PATH="$HOME/.kimi-code/bin:$PATH"
 source /usr/share/nvm/init-nvm.sh

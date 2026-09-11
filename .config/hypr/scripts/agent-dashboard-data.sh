@@ -23,7 +23,7 @@ _cadence() { timeout 10 cadence "$@" 2>/dev/null || true; }
 # Resolve project path from project slug.  We look in known project roots.
 resolve_project_path() {
     local slug="$1"
-    for root in /mnt/data/personal /mnt/data/work /home/notpc/projects; do
+    for root in /mnt/data/personal /mnt/data/work "$HOME/projects"; do
         local cand="${root}/${slug}"
         if [[ -d "${cand}" ]]; then
             echo "${cand}"
