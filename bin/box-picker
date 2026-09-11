@@ -366,9 +366,9 @@ main() {
         fi
 
         if [[ -n "${ensure_dir}" && "${ensure_dir}" != "--" ]]; then
-            exec sudo /home/notpc/bin/ensure-box --browser --dir "${ensure_dir}" "${target}"
+            exec sudo "$HOME/bin/ensure-box" --browser --dir "${ensure_dir}" "${target}"
         else
-            exec sudo /home/notpc/bin/ensure-box --browser "${target}"
+            exec sudo "$HOME/bin/ensure-box" --browser "${target}"
         fi
     fi
 
@@ -398,9 +398,9 @@ main() {
             wt_esc="${worktree//\'/\'\\\'\'}"
             box_esc="${box_name//\'/\'\\\'\'}"
             if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
-                tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
+                tmux detach-client -E "sudo ${HOME}/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
             else
-                tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser '${box_esc}'"
+                tmux detach-client -E "sudo ${HOME}/bin/ensure-box --browser '${box_esc}'"
             fi
         fi
         exit 0
@@ -506,15 +506,15 @@ main() {
         wt_esc="${worktree//\'/\'\\\'\'}"
         box_esc="${box_name//\'/\'\\\'\'}"
         if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
-            tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
+            tmux detach-client -E "sudo ${HOME}/bin/ensure-box --browser --dir '${wt_esc}' '${box_esc}'"
         else
-            tmux detach-client -E "sudo /home/notpc/bin/ensure-box --browser '${box_esc}'"
+            tmux detach-client -E "sudo ${HOME}/bin/ensure-box --browser '${box_esc}'"
         fi
     else
         if [[ -n "${worktree}" && "${worktree}" != "--" ]]; then
-            exec sudo /home/notpc/bin/ensure-box --browser --dir "${worktree}" "${box_name}"
+            exec sudo "$HOME/bin/ensure-box" --browser --dir "${worktree}" "${box_name}"
         else
-            exec sudo /home/notpc/bin/ensure-box --browser "${box_name}"
+            exec sudo "$HOME/bin/ensure-box" --browser "${box_name}"
         fi
     fi
 }

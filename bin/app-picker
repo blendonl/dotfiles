@@ -320,10 +320,10 @@ tmux -S "$SOCKET_PATH" start-server 2>/dev/null || true
 if ! tmux -S "$SOCKET_PATH" has-session -t "=${APP_SESSION}" 2>/dev/null; then
     tmux -S "$SOCKET_PATH" new-session -d -s "$APP_SESSION" \
         -c "$APP_DIR" \
-        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
+        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd ${HOME} 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
 
     tmux -S "$SOCKET_PATH" set-option -t "$APP_SESSION" default-command \
-        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
+        "podman compose -p ${BOX_NAME} -f ${COMPOSE_FILE} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_APP_DIR} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd ${HOME} 2>/dev/null || true; exec /usr/bin/zsh' _ $APP_DIR"
 
     tmux -S "$SOCKET_PATH" set-window-option -t "$APP_SESSION" remain-on-exit on 2>/dev/null || true
 fi
