@@ -23,7 +23,7 @@ COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
 
 # Browser password — resolved from $BOX_VNC_PW or the generated secret, never
 # hardcoded here (the compose file lands in /tmp, not in the repo).
-VNC_PW="$(/home/notpc/bin/box-vnc-pw)"
+VNC_PW="$("$HOME/bin/box-vnc-pw")"
 
 # ── Detect mode & configure podman socket ─────────────────────────────
 
@@ -133,9 +133,9 @@ services:
       nproc: { soft: 60674, hard: 60674 }
     volumes:
       - ${WORKTREE_DIR}:/workspace:z
-      - /home/notpc:/home/notpc:rslave
+      - ${HOME}:${HOME}:rslave
       - /mnt/data:/mnt/data:rslave
-      - /home/notpc/.cache/pacman:/var/cache/pacman/pkg
+      - ${HOME}/.cache/pacman:/var/cache/pacman/pkg
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - \${XDG_RUNTIME_DIR:-/run/user/1000}:/run/user/1000
       - /run/user/1000/podman/podman.sock:/run/user/1000/podman/podman.sock:ro
@@ -146,7 +146,7 @@ services:
       - CONTAINER_ID=${BOX_NAME}
       - PROJECT_NAME=${PROJECT_NAME}
       - container=podman
-      - HOME=/home/notpc
+      - HOME=${HOME}
       - SHELL=/usr/bin/zsh
       - TERM=\${TERM:-xterm-256color}
       - DOCKER_HOST=unix:///run/user/1000/podman/podman.sock
@@ -188,9 +188,9 @@ services:
       nproc: { soft: 60674, hard: 60674 }
     volumes:
       - ${WORKTREE_DIR}:/workspace:z
-      - /home/notpc:/home/notpc:rslave
+      - ${HOME}:${HOME}:rslave
       - /mnt/data:/mnt/data:rslave
-      - /home/notpc/.cache/pacman:/var/cache/pacman/pkg
+      - ${HOME}/.cache/pacman:/var/cache/pacman/pkg
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
       - \${XDG_RUNTIME_DIR:-/run/user/1000}:/run/user/1000
       - /run/podman/podman.sock:/run/podman/podman.sock:ro
@@ -201,7 +201,7 @@ services:
       - CONTAINER_ID=${BOX_NAME}
       - PROJECT_NAME=${PROJECT_NAME}
       - container=podman
-      - HOME=/home/notpc
+      - HOME=${HOME}
       - SHELL=/usr/bin/zsh
       - TERM=\${TERM:-xterm-256color}
       - DOCKER_HOST=unix:///run/podman/podman.sock
