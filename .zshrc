@@ -179,3 +179,5 @@ alias cadence-build="CGO_ENABLED=1 CADENCE_BACKEND_URL=https://cadence-api.blend
 # kimi-code
 export PATH="/home/notpc/.kimi-code/bin:$PATH"
 source /usr/share/nvm/init-nvm.sh
+export PATH="$PATH:/home/notpc/.dotnet/tools"
+

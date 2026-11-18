@@ -12,6 +12,7 @@ vim.lsp.enable({
   "lua_ls",
   "basedpyright",
   "ruff",
+  "roslyn_ls"
 })
 
 vim.diagnostic.config({
