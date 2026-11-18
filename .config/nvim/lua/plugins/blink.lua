@@ -36,12 +36,6 @@ return {
 			default = { "lsp", "path", "snippets", "buffer", "dadbod" },
 			providers = {
 				dadbod = { name = "Dadbod", module = "vim_dadbod_completion.blink" },
-				copilot = {
-					name = "copilot",
-					module = "blink-cmp-copilot",
-					score_offset = 100,
-					async = true,
-				},
 				minuet = {
 					name = "minuet",
 					module = "minuet.blink",
