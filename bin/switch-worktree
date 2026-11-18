@@ -261,10 +261,10 @@ if ! tmux -S "$SOCKET_PATH" has-session -t "$SESSION_NAME" 2>/dev/null; then
         # fall back to the host path, then /home/notpc.
         tmux -S "$SOCKET_PATH" new-session -d -s "$SESSION_NAME" \
             -c "$TARGET_DIR" \
-            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd ${HOME} 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
 
         tmux -S "$SOCKET_PATH" set-option -t "$SESSION_NAME" default-command \
-            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd /home/notpc 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
+            "podman compose -p ${BOX_NAME} -f ${compose_file} exec -u 1000:1000 dev /bin/sh -c 'cd ${CONTAINER_TARGET} 2>/dev/null || cd \"\$1\" 2>/dev/null || cd ${HOME} 2>/dev/null || true; exec /usr/bin/zsh' _ ${TARGET_DIR}"
     else
         # Base worktree session: cd to the worktree root.
         tmux -S "$SOCKET_PATH" new-session -d -s "$SESSION_NAME" \

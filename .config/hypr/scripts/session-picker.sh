@@ -13,7 +13,7 @@ SEARCH_PATHS=(
 
 CONFIG_ROOTS=(
     /mnt/data/personal/dotfiles/.config
-    /home/notpc/dotfiles/.config
+    "$HOME/dotfiles/.config"
 )
 
 MONOREPO_SUBDIRS=(apps packages)
