@@ -54,7 +54,7 @@ return {
 
 		},
 		config = function()
-			require(".config.nvim.lua.config.keybinds.neotest").setup({
+			require("neotest").setup({
 				adapters = {
 					require("neotest-jest")({
 						jestCommand = "yarn test --",

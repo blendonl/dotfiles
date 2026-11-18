@@ -18,6 +18,6 @@ return {
 		{ "<leader>lg", "<cmd>LazyGit<cr>", desc = "LazyGit" },
 	},
 	config = function()
-		require(".config.nvim.lua.plugins.telescope").load_extension("lazygit")
+		require("telescope").load_extension("lazygit")
 	end,
 }
