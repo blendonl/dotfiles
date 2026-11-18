@@ -13,7 +13,7 @@ return {
 
       local parsers = {
         "bash", "c", "cpp", "css", "diff", "go",
-        "html", "javascript", "json", "jsonc", "lua", "luadoc", "luap",
+        "html", "http", "javascript", "json", "lua", "luadoc", "luap",
         "markdown", "markdown_inline", "python", "query", "regex", "rust",
         "toml", "tsx", "typescript", "vim", "vimdoc", "yaml",
       }
