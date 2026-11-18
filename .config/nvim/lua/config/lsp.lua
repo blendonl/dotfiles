@@ -4,6 +4,7 @@ vim.lsp.config("*", {
 })
 
 vim.lsp.enable({
+  "rust-analyzer",
   "vtsls",
   "cssls",
   "html",
