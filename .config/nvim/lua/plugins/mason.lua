@@ -17,6 +17,8 @@ return {
 				"cssls",
 				"html",
 				"jsonls",
+				"basedpyright",
+				"ruff",
 			},
 		},
 	},

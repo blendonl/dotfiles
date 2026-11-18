@@ -9,6 +9,8 @@ vim.lsp.enable({
   "html",
   "jsonls",
   "lua_ls",
+  "basedpyright",
+  "ruff",
 })
 
 vim.diagnostic.config({

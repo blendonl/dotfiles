@@ -30,7 +30,7 @@ return {
 					markdown = { "prettier" },
 					graphql = { "prettier" },
 					lua = { "stylua" },
-					python = { "isort", "black" },
+					python = { "ruff_organize_imports", "ruff_format" },
 					sql = { "sql-formatter" },
 				},
 				format_on_save = {
